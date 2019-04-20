@@ -1,3 +1,4 @@
+import java.io.ObjectOutputStream;
 import java.util.Random;
 
 public class TCPSocketImpl extends TCPSocket {
@@ -7,7 +8,17 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void send(String pathToFile) throws Exception {
-        throw new RuntimeException("Not implemented!");
+        // throw new RuntimeException("Not implemented!");
+        Packet newPacket = Packet("0", "1", "", "Hello");
+        try{
+            //TODO: create socket
+            ObjectOutputStream out = new ObjectOutputStream(socket);
+              
+            out.writeObject(newPacket); 
+              
+            out.close(); 
+            socket.close();
+        }
     }
 
     @Override
