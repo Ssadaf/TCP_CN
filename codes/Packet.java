@@ -1,5 +1,6 @@
-import java.io.*; 
+import java.io.*;
 import java.net.DatagramPacket;
+import java.net.InetAddress;
   
 class Packet implements java.io.Serializable 
 {  
@@ -15,7 +16,7 @@ class Packet implements java.io.Serializable
     private int offset;
     private int length;
 
-    public Packet(String ack_flag, int syn_flag, String source_port, int destination_port, InetAddress destination_address, String ack_number, String data, byte[] buffer, int offset, int length)
+    public Packet(String ack_flag, String syn_flag, int source_port, int destination_port, InetAddress destination_address, String ack_number, String data, byte[] buffer, int offset, int length)
     {        
         this.ack_flag = ack_flag;
         this.syn_flag = syn_flag;
@@ -51,6 +52,6 @@ class Packet implements java.io.Serializable
 
     public DatagramPacket convertToDatagramPacket()
     {
-        DatagramPacket dPacket = DatagramPacket(buffer, offset, length, destination_address, destination_port)
+        DatagramPacket dPacket = DatagramPacket(buffer, offset, length, destination_address, destination_port);
     }
 }
