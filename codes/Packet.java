@@ -57,8 +57,12 @@ class Packet implements java.io.Serializable
         return data;
     }
 
+
     public DatagramPacket convertToDatagramPacket()
     {
+        msg = createMessage()
+        buffer = msg.getBytes()
+        length = msg.length()
         DatagramPacket dPacket = DatagramPacket(buffer, offset, length, destination_address, destination_port);
     }
 }
