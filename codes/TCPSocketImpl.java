@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.net.DatagramPacket;
 import java.util.Random;
 import Packet.java;
 import TCPSocket.java;
@@ -13,6 +14,7 @@ public class TCPSocketImpl extends TCPSocket {
     public void send(String pathToFile) throws Exception {
         // throw new RuntimeException("Not implemented!");
         Packet newPacket = Packet("0", "1", "", "", "", "Hello");
+        DatagramPacket newDatagramPacket = newPacket.convertToDatagramPacket();
         try{
             TCPSocket socket = TCPSocket("", "");
             ObjectOutputStream out = new ObjectOutputStream(socket);
