@@ -10,7 +10,6 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void send(String pathToFile) throws Exception {
-        // throw new RuntimeException("Not implemented!");
         Packet newPacket = new Packet("0", "1", String.valueOf(Config.sourcePortNum), String.valueOf(Config.destinationPortNum), "", "Hello", 0);
         DatagramPacket newDatagramPacket = newPacket.convertToDatagramPacket();
         EnhancedDatagramSocket socket = new EnhancedDatagramSocket(Config.destinationPortNum);

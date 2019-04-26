@@ -30,7 +30,7 @@ class Packet implements java.io.Serializable
     public String createMessage(){
         String msg = "";
         msg += "ack: " + ack_flag + "\nsyn: " + syn_flag + "\nack_num: " + ack_number
-             + "\nsource_port: " + source_port + "\ndestination_port: " + destination_port + "\n";
+             + "\nsource_port: " + source_port + "\ndestination_port: " + destination_port + "\ndata: " + data + "\n";
         return msg;
     }
 
