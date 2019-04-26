@@ -15,17 +15,8 @@ public class TCPSocketImpl extends TCPSocket {
         // throw new RuntimeException("Not implemented!");
         Packet newPacket = Packet("0", "1", "", "", "", "Hello");
         DatagramPacket newDatagramPacket = newPacket.convertToDatagramPacket();
-        try{
-            TCPSocket socket = TCPSocket("", "");
-            ObjectOutputStream out = new ObjectOutputStream(socket);
-              
-            out.writeObject(newPacket); 
-              
-            out.close(); 
-            socket.close();
-        }catch(Exception ex){
-            ex.printStackTrace();
-        }
+        EnhancedDatagramSocket socket = new EnhancedDatagramSocket(port);
+        socket.send(newDatagramPacket);
     }
 
     @Override

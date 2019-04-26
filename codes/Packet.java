@@ -30,8 +30,8 @@ class Packet implements java.io.Serializable
         this.destination_address = destination_address;
     }
 
-    public byte[] createMessage(){
-        msg = "";
+    public String createMessage(){
+        String msg = "";
         msg += "ack: " + ack_flag + "\nsyn: " + syn_flag + "\nack_num: " + ack_number
              + "\nsource_port: " + source_port + "\ndestination_port: " + destination_port + "\n";
         return msg;
@@ -59,6 +59,6 @@ class Packet implements java.io.Serializable
 
     public DatagramPacket convertToDatagramPacket()
     {
-        DatagramPacket dPacket = DatagramPacket(buffer, offset, length, destination_address, destination_port);
+        DatagramPacket dPacket = new DatagramPacket(buffer, offset, length, destination_address, destination_port);
     }
 }
