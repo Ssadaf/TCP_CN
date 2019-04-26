@@ -8,7 +8,6 @@ class Packet implements java.io.Serializable
     private String syn_flag;
     private String source_port;
     private String destination_port; 
-    private InetAddress destination_address;
     private String ack_number;
     private String seq_number;
     private String data;
@@ -16,7 +15,7 @@ class Packet implements java.io.Serializable
     private int offset;
     private int length;
 
-    public Packet(String ack_flag, String syn_flag, String source_port, String destination_port, InetAddress destination_address, String ack_number, String data, int offset)
+    public Packet(String ack_flag, String syn_flag, String source_port, String destination_port, String ack_number, String data, int offset)
     {        
         this.ack_flag = ack_flag;
         this.syn_flag = syn_flag;
@@ -25,7 +24,7 @@ class Packet implements java.io.Serializable
         this.ack_number = ack_number;
         this.data = data;
         this.offset = offset;
-        this.destination_address = destination_address;
+
     }
 
     public String createMessage(){
@@ -58,9 +57,10 @@ class Packet implements java.io.Serializable
 
     public DatagramPacket convertToDatagramPacket()
     {
-        msg = createMessage();
+        String msg = createMessage();
         buffer = msg.getBytes();
         length = msg.length();
-        DatagramPacket dPacket = DatagramPacket(buffer, offset, length, destination_address, destination_port);
+        DatagramPacket dPacket = new DatagramPacket(buffer, offset, length);
+        return dPacket;
     }
 }
