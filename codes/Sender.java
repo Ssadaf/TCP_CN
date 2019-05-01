@@ -6,7 +6,7 @@ public class Sender {
         TCPSocket tcpSocket = new TCPSocketImpl(Config.senderIP, Config.senderPortNum);
         tcpSocket.connect(Config.receiverIP, Config.receiverPortNum);
 //        tcpSocket.send("sending.mp3");
-//        tcpSocket.close();
+        tcpSocket.close();
 //       tcpSocket.saveCongestionWindowPlot();
     }
 }
