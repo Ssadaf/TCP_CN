@@ -18,7 +18,7 @@ public class TCPServerSocketImpl extends TCPServerSocket {
         Packet synPacket = new Packet(new String(msg));
         if(synPacket.getSynFlag()!="1")
             throw new Exception("This message is not SYN");
-   
+
         TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
         Packet synAckPacket = new Packet("1", "1", String.valueOf(9797), String.valueOf(Config.senderPortNum), "", "", 0);
         DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
