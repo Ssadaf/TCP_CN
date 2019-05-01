@@ -24,7 +24,7 @@ public class TCPSocketImpl extends TCPSocket {
         DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
         enSocket.send(synDatagramPacket);
 
-        byte[] msg = new byte[65535];
+        byte[] msg = new byte[Config.maxMsgSize];
         DatagramPacket synAckDatagramPacket = new DatagramPacket(msg, msg.length);
         enSocket.receive(synAckDatagramPacket);
         Packet synAckPacket = new Packet(new String(msg));

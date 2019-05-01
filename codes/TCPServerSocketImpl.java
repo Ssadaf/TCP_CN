@@ -11,14 +11,14 @@ public class TCPServerSocketImpl extends TCPServerSocket {
 
     @Override
     public TCPSocket accept() throws Exception {
-        byte[] msg = new byte[65535];
-        DatagramPacket synDatagramPacket = new DatagramPacket(msg, msg.length);
-        this.enSocket.receive(synDatagramPacket);
+        byte[] msg = new byte[Config.maxMsgSize];
+        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
+        this.enSocket.receive(newDatagramPacket);
         System.out.println(new String(msg));
         Packet synPacket = new Packet(new String(msg));
         if(synPacket.getSynFlag()!="1")
             throw new Exception("This message is not SYN");
-
+   
         TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
         Packet synAckPacket = new Packet("1", "1", String.valueOf(9797), String.valueOf(Config.senderPortNum), "", "", 0);
         DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
