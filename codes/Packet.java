@@ -4,24 +4,24 @@ import java.net.InetAddress;
   
 class Packet implements java.io.Serializable 
 {  
-    private String ack_flag;
-    private String syn_flag;
-    private String source_port;
-    private String destination_port; 
-    private String ack_number;
-    private String seq_number;
+    private String ackFlag;
+    private String synFlag;
+    private String sourcePort;
+    private String destinationPort;
+    private String ackNumber;
+    private String seqNumber;
     private String data;
     private byte[] buffer;
     private int offset;
     private int length;
 
-    public Packet(String ack_flag, String syn_flag, String source_port, String destination_port, String ack_number, String data, int offset)
+    public Packet(String ackFlag, String synFlag, String sourcePort, String destinationPort, String ackNumber, String data, int offset)
     {        
-        this.ack_flag = ack_flag;
-        this.syn_flag = syn_flag;
-        this.source_port = source_port;
-        this.destination_port = destination_port;
-        this.ack_number = ack_number;
+        this.ackFlag = ackFlag;
+        this.synFlag = synFlag;
+        this.sourcePort = sourcePort;
+        this.destinationPort = destinationPort;
+        this.ackNumber = ackNumber;
         this.data = data;
         this.offset = offset;
 
@@ -29,24 +29,24 @@ class Packet implements java.io.Serializable
 
     public String createMessage(){
         String msg = "";
-        msg += "ack: " + ack_flag + "\nsyn: " + syn_flag + "\nack_num: " + ack_number
-             + "\nsource_port: " + source_port + "\ndestination_port: " + destination_port + "\ndata: " + data + "\n";
+        msg += "ack: " + ackFlag + "\nsyn: " + synFlag + "\nack_num: " + ackNumber
+             + "\nsource_port: " + sourcePort + "\ndestination_port: " + destinationPort + "\ndata: " + data + "\n";
         return msg;
     }
 
     public String get_ack_flag()
     {
-        return ack_flag;
+        return ackFlag;
     }
 
     public String get_syn_flag()
     {
-        return syn_flag;
+        return synFlag;
     }
 
     public String get_ack_number()
     {
-        return ack_number;
+        return ackNumber;
     }
 
     public String get_data()

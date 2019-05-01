@@ -1,5 +1,7 @@
 import java.io.IOException;
 import java.net.DatagramPacket;
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.util.Random;
 
 public class TCPSocketImpl extends TCPSocket {
@@ -9,11 +11,18 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     @Override
-    public void send(String pathToFile) throws Exception {
+    public void send(String pathToFile){
+        throw new RuntimeException("Not implemented!");
+    }
+
+    @Override
+    public void connect(String destinationIP, int destinationPort) throws IOException {
         Packet newPacket = new Packet("0", "1", String.valueOf(Config.sourcePortNum), String.valueOf(Config.destinationPortNum), "", "Hello", 0);
         DatagramPacket newDatagramPacket = newPacket.convertToDatagramPacket();
-        EnhancedDatagramSocket socket = new EnhancedDatagramSocket(Config.destinationPortNum);
-        socket.send(newDatagramPacket);
+        newDatagramPacket.setPort(destinationPort);
+        newDatagramPacket.setAddress(InetAddress.getByName(destinationIP));
+        EnhancedDatagramSocket enSocket = new EnhancedDatagramSocket(Config.destinationPortNum);
+        enSocket.send(newDatagramPacket);
     }
 
     @Override
