@@ -5,6 +5,7 @@ import java.net.SocketException;
 import java.util.Random;
 
 public class TCPSocketImpl extends TCPSocket {
+    private int serverPort;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -16,13 +17,24 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     @Override
-    public void connect(String destinationIP, int destinationPort) throws IOException {
-        Packet newPacket = new Packet("0", "1", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), "", "Hello", 0);
-        DatagramPacket newDatagramPacket = newPacket.convertToDatagramPacket();
-        newDatagramPacket.setPort(destinationPort);
-        newDatagramPacket.setAddress(InetAddress.getByName(destinationIP));
+    public void connect(String destinationIP, int destinationPort) throws Exception {
         EnhancedDatagramSocket enSocket = new EnhancedDatagramSocket(Config.senderPortNum);
-        enSocket.send(newDatagramPacket);
+
+        Packet synPacket = new Packet("0", "1", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), "", "", 0);
+        DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
+        enSocket.send(synDatagramPacket);
+
+        byte[] msg = new byte[65535];
+        DatagramPacket synAckDatagramPacket = new DatagramPacket(msg, msg.length);
+        enSocket.receive(synAckDatagramPacket);
+        Packet synAckPacket = new Packet(new String(msg));
+        if(synAckPacket.getSynFlag()!="1" || synAckPacket.getAckFlag() !="1")
+            throw new Exception("This message is not SYN ACK");
+        this.serverPort = Integer.parseInt(synAckPacket.getDestinationPort());
+
+        Packet ackPacket = new Packet("1", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), "", "", 0);
+        DatagramPacket ackDatagramPacket = synPacket.convertToDatagramPacket(Config.receiverPortNum, destinationIP);
+        enSocket.send(ackDatagramPacket);
     }
 
     @Override

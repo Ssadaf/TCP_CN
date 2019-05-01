@@ -1,8 +1,4 @@
-import org.omg.DynamicAny.DynArray;
-
 import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 
 public class TCPServerSocketImpl extends TCPServerSocket {
     private EnhancedDatagramSocket enSocket;
@@ -16,10 +12,25 @@ public class TCPServerSocketImpl extends TCPServerSocket {
     @Override
     public TCPSocket accept() throws Exception {
         byte[] msg = new byte[65535];
-        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
-        this.enSocket.receive(newDatagramPacket);
+        DatagramPacket synDatagramPacket = new DatagramPacket(msg, msg.length);
+        this.enSocket.receive(synDatagramPacket);
         System.out.println(new String(msg));
-        throw new RuntimeException("Not implemented!");
+        Packet synPacket = new Packet(new String(msg));
+        if(synPacket.getSynFlag()!="1")
+            throw new Exception("This message is not SYN");
+
+        TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
+        Packet synAckPacket = new Packet("1", "1", String.valueOf(9797), String.valueOf(Config.senderPortNum), "", "", 0);
+        DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
+        this.enSocket.send(synAckMsg);
+
+
+        DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
+        this.enSocket.receive(ackDatagramPacket);
+        Packet ackPacket = new Packet(new String(msg));
+        if(ackPacket.getAckFlag()!="1")
+            throw new Exception("This message is not ACK");
+        return server;
     }
 
     @Override
