@@ -1,8 +1,6 @@
 import org.omg.DynamicAny.DynArray;
 
 import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 
 public class TCPServerSocketImpl extends TCPServerSocket {
     private EnhancedDatagramSocket enSocket;
@@ -15,10 +13,11 @@ public class TCPServerSocketImpl extends TCPServerSocket {
 
     @Override
     public TCPSocket accept() throws Exception {
-        byte[] msg = new byte[65535];
+        byte[] msg = new byte[Config.maxMsgSize];
         DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
         this.enSocket.receive(newDatagramPacket);
         System.out.println(new String(msg));
+        EnhancedDatagramSocket()
         throw new RuntimeException("Not implemented!");
     }
 
