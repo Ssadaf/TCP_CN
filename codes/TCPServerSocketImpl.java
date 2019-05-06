@@ -43,13 +43,15 @@ public class TCPServerSocketImpl extends TCPServerSocket {
         Packet synPacket = new Packet(new String(msg));
         if(synPacket.getSynFlag()!="1")
             throw new Exception("This message is not SYN");
+        int rcvSeqNum = synPacket.getSeqNumber();
 
         TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
-        Packet synAckPacket = new Packet("1", "1", "0", String.valueOf(9797), String.valueOf(Config.senderPortNum), "", "", 0);
+        Packet synAckPacket = new Packet("1", "1", "0", String.valueOf(9797), String.valueOf(Config.senderPortNum), rcvSeqNum + 1, 0, "", 0);
         DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
 
         sendSynAck(synAckMsg);
 
+        server.setDestinationPort(Config.senderPortNum);
         return server;
     }
 

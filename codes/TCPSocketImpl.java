@@ -6,17 +6,27 @@ import java.net.SocketTimeoutException;
 import java.util.Random;
 
 enum State{
-    INIT, FIN_WAIT_1, FIN_WAIT_2, TRANSFER ;
+    TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT ;
 }
 
 public class TCPSocketImpl extends TCPSocket {
-    private int serverPort;
+    private int destinationPort;
+    private String destinationIP = Config.destinationIP;
     private EnhancedDatagramSocket enSocket;
     private State currState;
+    private int sourcePort;
+    private int currSeqNum;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
+        this.sourcePort = port;
         this.enSocket = new EnhancedDatagramSocket(port);
+        this.currState = State.TRANSFER;
+        this.currSeqNum = 0;
+    }
+
+    public void setDestinationPort(int destinationPort){
+        this.destinationPort = destinationPort;
     }
 
     @Override
@@ -24,7 +34,7 @@ public class TCPSocketImpl extends TCPSocket {
         throw new RuntimeException("Not implemented!");
     }
 
-    public void sendSyn(DatagramPacket synDatagramPacket ) throws Exception {
+    public int sendSyn(DatagramPacket synDatagramPacket ) throws Exception {
         while(true){
             this.enSocket.send(synDatagramPacket);
             this.enSocket.setSoTimeout(1000);
@@ -38,8 +48,9 @@ public class TCPSocketImpl extends TCPSocket {
                     synAckPacket = new Packet(new String(msg));
                     if(synAckPacket.getSynFlag()!="1" || synAckPacket.getAckFlag() !="1")
                         throw new Exception("This message is not SYN ACK");
-                    this.serverPort = Integer.parseInt(synAckPacket.getDestinationPort());
-                    return;
+                    this.destinationPort = Integer.parseInt(synAckPacket.getDestinationPort());
+                    int rcvSeqNum = synAckPacket.getSeqNumber();
+                    return rcvSeqNum;
                 }
                 catch (SocketTimeoutException e) {
                     // timeout exception.
@@ -51,15 +62,15 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     @Override
-    public void connect(String destinationIP, int destinationPort) throws Exception {
+    public void connect(String serverIP, int serverPort) throws Exception {
 
-        Packet synPacket = new Packet("0", "1", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), "", "", 0);
-        DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
-        sendSyn(synDatagramPacket);
+        Packet synPacket = new Packet("0", "1", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), 0, 0, "", 0);
+        DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(serverPort, serverIP);
+        int rcvSeqNum = sendSyn(synDatagramPacket);
 
 
-        Packet ackPacket = new Packet("1", "0", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), "", "", 0);
-        DatagramPacket ackDatagramPacket = synPacket.convertToDatagramPacket(Config.receiverPortNum, destinationIP);
+        Packet ackPacket = new Packet("1", "0", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), rcvSeqNum + 1, 0, "", 0);
+        DatagramPacket ackDatagramPacket = synPacket.convertToDatagramPacket(Config.receiverPortNum, serverIP);
 
         for(int i=0; i<7; i++)
             this.enSocket.send(ackDatagramPacket);
@@ -72,20 +83,40 @@ public class TCPSocketImpl extends TCPSocket {
         DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
         this.enSocket.receive(newDatagramPacket);
         Packet newPacket = new Packet(new String(msg));
-        if(newPacket.getFinFlag() == "1"){
-            if(this.currState == State.FIN_WAIT_1){
+        int rcvSeqNum = newPacket.getSeqNumber();
+        if(newPacket.getFinFlag().equals("1")){
+            if(this.currState == State.FIN_WAIT_2){
+                this.currState = State.TIMED_WAIT;
 
+                this.currSeqNum ++;
+                Packet synPacket = new Packet("1", "0", "0", String.valueOf(sourcePort), String.valueOf(destinationPort), rcvSeqNum + 1, this.currSeqNum, "", 0);
+                DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
+                for(int i = 0; i < 7; i++)
+                    sendSyn(synDatagramPacket);
             }
             else{
+                this.currState = State.CLOSE_WAIT;
 
+                this.currSeqNum ++;
+                Packet synPacket = new Packet("1", "0", "0", String.valueOf(sourcePort), String.valueOf(destinationPort), rcvSeqNum + 1, this.currSeqNum, "", 0);
+                DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
+                sendSyn(synDatagramPacket);
             }
+        }
+        else if(newPacket.getAckFlag().equals("1")){
+            if((this.currState == State.FIN_WAIT_1) & (newPacket.getAckNumber() == this.currSeqNum + 1 ))
+                this.currState = State.FIN_WAIT_2;
         }
         throw new RuntimeException("Not implemented!");
     }
 
     @Override
     public void close() throws Exception {
-        throw new RuntimeException("Not implemented!");
+        this.currSeqNum ++;
+        Packet closePacket = new Packet("0", "0", "1", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), 0, this.currSeqNum, "", 0);
+        DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(destinationPort, destinationIP);
+        sendSyn(closeDatagramPacket);
+        this.currState = State.FIN_WAIT_1;
     }
 
     @Override
