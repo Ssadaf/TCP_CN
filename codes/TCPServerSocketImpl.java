@@ -6,8 +6,7 @@ public class TCPServerSocketImpl extends TCPServerSocket {
 
     public TCPServerSocketImpl(int port) throws Exception {
         super(port);
-
-        this.enSocket = new EnhancedDatagramSocket(Config.receiverPortNum);
+        this.enSocket = new EnhancedDatagramSocket(port);
     }
 
 
@@ -46,7 +45,7 @@ public class TCPServerSocketImpl extends TCPServerSocket {
             throw new Exception("This message is not SYN");
 
         TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
-        Packet synAckPacket = new Packet("1", "1", String.valueOf(9797), String.valueOf(Config.senderPortNum), "", "", 0);
+        Packet synAckPacket = new Packet("1", "1", "0", String.valueOf(9797), String.valueOf(Config.senderPortNum), "", "", 0);
         DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
 
         sendSynAck(synAckMsg);
