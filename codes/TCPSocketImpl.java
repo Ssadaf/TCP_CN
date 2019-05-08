@@ -39,7 +39,14 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     public void retransmitPacket(int retransmitSeqNum){
-        
+
+    }
+
+    public int getCurrentDupAckLimit(){
+        if(this.ackedSeqNum == (this.currSeqNum - this.cwnd + 1) )
+            return 3;
+        else
+            return 2;
     }
 
     @Override
@@ -47,11 +54,10 @@ public class TCPSocketImpl extends TCPSocket {
         File file = new File(pathToFile);
         this.reader = new FileInputStream(file);
         byte[] chunk = new byte[Config.chunkSize];
-        int chunkLen = 0;
         this.currSeqNum = 0;
         this.ackedSeqNum = 0;
         this.numDupAck = 0;
-        while ((chunkLen = reader.read(chunk)) != -1) {
+        while ( reader.read(chunk) != -1) {
             while(currSeqNum <= this.ackedSeqNum +this.cwnd + this.numDupAck) {
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
@@ -64,10 +70,13 @@ public class TCPSocketImpl extends TCPSocket {
             Packet ackPacket = new Packet(new String(msg));
             if(ackPacket.getAckNumber() == (this.ackedSeqNum + 1) ){
                 this.numDupAck ++;
-                retransmitPacket(this.ackedSeqNum + 1);
+                if(this.numDupAck > getCurrentDupAckLimit()) {
+                    retransmitPacket(this.ackedSeqNum + 1);
+                    this.numDupAck--;
+                }
             }
             else{
-                this.cwnd ++;
+                this.cwnd  = this.cwnd * 2;
             }
 
         }
