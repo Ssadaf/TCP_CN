@@ -74,10 +74,12 @@ public class TCPSocketImpl extends TCPSocket {
                 buffer.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
             }
+
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
             this.enSocket.receive(ackDatagram);
             Packet ackPacket = new Packet(new String(msg));
+
             if(ackPacket.getAckNumber() == (this.ackedSeqNum ) ){//DUPLICATE ACK
                 if(this.currState == State.SLOW_START | this.currState == State.CONGESTION_AVOIDANCE) {
                     this.numDupAck++;
@@ -91,7 +93,7 @@ public class TCPSocketImpl extends TCPSocket {
                         currState = State.FAST_RECOVERY;
                     }
                 }
-                if(currState == State.FAST_RECOVERY){
+                else if(currState == State.FAST_RECOVERY){
 
 //                    retransmitPacket(this.ackedSeqNum) ;
                     System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
@@ -109,7 +111,7 @@ public class TCPSocketImpl extends TCPSocket {
                     if(this.cwnd > this.SSthreshold)
                         this.currState = State.CONGESTION_AVOIDANCE;
                 }
-                if(this.currState == State.CONGESTION_AVOIDANCE) {
+                else if(this.currState == State.CONGESTION_AVOIDANCE) {
                     this.congestionAvoidanceTemp ++;
                     if(congestionAvoidanceTemp == cwnd){
                         congestionAvoidanceTemp = 0;
@@ -117,7 +119,7 @@ public class TCPSocketImpl extends TCPSocket {
                     }
                     numDupAck = 0;
                 }
-                if(currState == State.FAST_RECOVERY){
+                else if(currState == State.FAST_RECOVERY){
                     System.out.println("OUT OF FAST RECOVERY");
                     cwnd = SSthreshold;
                     numDupAck = 0;
