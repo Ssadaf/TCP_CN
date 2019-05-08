@@ -160,12 +160,10 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        if(pathToFile.equals("")) {
-            FileWriter newFile = new FileWriter(pathToFile);
-            newFile.close();
-            this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
-            this.nextToWriteOnFile = 1;
-        }
+        FileWriter newFile = new FileWriter(pathToFile);
+        newFile.close();
+        this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
+        this.nextToWriteOnFile = 1;
 
         while(this.currState != State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
@@ -247,8 +245,8 @@ public class TCPSocketImpl extends TCPSocket {
                             //TODO: AFTER RECEIVE
                             throw new Exception("This message is not my ACK -- WILL CHANGE AFTER IMPLEMENTATION OF RECEIVE");
                         this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
-                        if(this.currState == State.FIN_WAIT_2)
-                            this.receive("");
+//                        if(this.currState == State.FIN_WAIT_2)
+                            //TODO RECEIVE
                     } catch (SocketTimeoutException e) {
                         // timeout exception.
                         System.out.println("Timeout reached!!! " + e);
