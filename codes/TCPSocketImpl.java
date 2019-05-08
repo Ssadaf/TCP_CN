@@ -18,7 +18,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int sourcePort;
     private int currSeqNum;
     private ArrayList<Packet> buffer = new ArrayList<>();
-    private long nextToWriteOnFile = 0;
+    private long nextToWriteOnFile;
     private BufferedWriter writer;
     private FileInputStream reader;
     private int cwnd;
@@ -85,7 +85,6 @@ public class TCPSocketImpl extends TCPSocket {
 
         }
 
-        throw new RuntimeException("Not implemented!");
     }
 
     public int sendSyn(DatagramPacket synDatagramPacket ) throws Exception {
@@ -159,10 +158,12 @@ public class TCPSocketImpl extends TCPSocket {
         FileWriter newFile = new FileWriter(pathToFile);
         newFile.close();
         this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
+        this.nextToWriteOnFile = 1;
 
         while(this.currState != State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket receivedDatagram = new DatagramPacket(msg, msg.length);
+            this.enSocket.receive(receivedDatagram);
             Packet receivedPacket = new Packet(new String(msg));
             int rcvSeqNum = receivedPacket.getSeqNumber();
             if(checkIfAckOrSyn(receivedPacket))
@@ -181,7 +182,7 @@ public class TCPSocketImpl extends TCPSocket {
                 nextToWriteOnFile++;
                 addAllValidPacketsToFile(pathToFile);
             }
-            else if(receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber())
+            else if(buffer.size() == 0 || receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber())
                 buffer.add(receivedPacket);
         }
 //        byte[] msg = new byte[Config.maxMsgSize];
