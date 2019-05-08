@@ -96,12 +96,19 @@ public class TCPSocketImpl extends TCPSocket {
         }
     }
 
+    private void sendAck(int rcvSeqNum) throws Exception {
+        Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+        DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
+        this.enSocket.send(ackDatagramPacket);
+    }
+
     @Override
     public void receive(String pathToFile) throws Exception {
         while(true) {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket receivedDatagram = new DatagramPacket(msg, msg.length);
             Packet receivedPacket = new Packet(new String(msg));
+            sendAck(receivedPacket.getSeqNumber());
             if(checkIfAckOrSyn(receivedPacket))
                 continue;
             if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
@@ -109,7 +116,7 @@ public class TCPSocketImpl extends TCPSocket {
                 nextToWriteOnFile++;
                 addAllValidPacketsToFile(pathToFile);
             }
-            else
+            else if(receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber())
                 buffer.add(receivedPacket);
         }
 //        byte[] msg = new byte[Config.maxMsgSize];
