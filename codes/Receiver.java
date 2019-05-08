@@ -6,7 +6,7 @@ public class Receiver {
         TCPServerSocketImpl tcpServerSocket = new TCPServerSocketImpl(Config.receiverPortNum);
         TCPSocket tcpSocket = tcpServerSocket.accept();
 
-        tcpSocket.receive("");
+        tcpSocket.receive("../test.txt");
 
 //        tcpSocket.receive("receiving.mp3");
 //        tcpSocket.close();

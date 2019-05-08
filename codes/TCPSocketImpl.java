@@ -106,7 +106,8 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        String data;
+        FileWriter newFile = new FileWriter(pathToFile);
+        newFile.close();
         this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
 
         while(this.currState != State.CLOSE_WAIT) {
