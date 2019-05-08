@@ -2,6 +2,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
 import java.util.Random;
 import java.io.*;
 
@@ -16,7 +17,7 @@ public class TCPSocketImpl extends TCPSocket {
     private State currState;
     private int sourcePort;
     private int currSeqNum;
-    private Packet[] buffer = new Packet[Config.maxBufferSize];
+    private ArrayList<Packet> buffer = new ArrayList<>();
     private long nextToWriteOnFile = 0;
     private BufferedWriter writer;
 
@@ -89,6 +90,20 @@ public class TCPSocketImpl extends TCPSocket {
         this.writer.write(data);
     }
 
+    private void addAllValidPacketsToFile(String pathToFile) throws Exception{
+        while(buffer.get(0).getSeqNumber() == nextToWriteOnFile) {
+            writeToFile( buffer.get(0));
+            nextToWriteOnFile ++;
+            buffer.remove(0);
+        }
+    }
+
+    private void sendAck(int rcvSeqNum) throws Exception {
+        Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+        DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
+        this.enSocket.send(ackDatagramPacket);
+    }
+
     @Override
     public void receive(String pathToFile) throws Exception {
         String data;
@@ -107,9 +122,16 @@ public class TCPSocketImpl extends TCPSocket {
                 Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
                 DatagramPacket finAckDatagramPacket = finAckPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
                 this.enSocket.send(finAckDatagramPacket);
+                continue;
             }
-            if(receivedPacket.getSeqNumber() == nextToWriteOnFile)
+            sendAck(receivedPacket.getSeqNumber());
+            if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
                 writeToFile(receivedPacket);
+                nextToWriteOnFile++;
+                addAllValidPacketsToFile(pathToFile);
+            }
+            else if(receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber())
+                buffer.add(receivedPacket);
         }
 //        byte[] msg = new byte[Config.maxMsgSize];
 //        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
