@@ -7,7 +7,8 @@ import java.util.Random;
 import java.io.*;
 
 enum State{
-    TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT, CLOSED, LAST_ACK ;
+    SLOW_START, CONGESTION_AVOIDANCE, FAST_RECOVERY,
+    FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT, CLOSED, LAST_ACK ;
 }
 
 public class TCPSocketImpl extends TCPSocket {
@@ -25,12 +26,13 @@ public class TCPSocketImpl extends TCPSocket {
     private int ackedSeqNum;
     private int numDupAck;
     private int SSthreshold;
+    private int congestionAvoidanceTemp;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
         this.sourcePort = port;
         this.enSocket = new EnhancedDatagramSocket(port);
-        this.currState = State.TRANSFER;
+        this.currState = State.SLOW_START;
         this.currSeqNum = 0;
     }
 
@@ -62,6 +64,8 @@ public class TCPSocketImpl extends TCPSocket {
         this.currSeqNum = 0;
         this.ackedSeqNum = 0;
         this.numDupAck = 0;
+        this.congestionAvoidanceTemp = 0;
+        SSthreshold = 8;
         while (reader.read(chunk) != -1) {
             while(currSeqNum <= this.ackedSeqNum +this.cwnd + this.numDupAck) {
                 this.currSeqNum ++;
@@ -72,24 +76,56 @@ public class TCPSocketImpl extends TCPSocket {
             }
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
+            this.enSocket.receive(ackDatagram);
             Packet ackPacket = new Packet(new String(msg));
-            if(ackPacket.getAckNumber() == (this.ackedSeqNum + 1) ){
-                this.numDupAck ++;
-                if(this.numDupAck > getCurrentDupAckLimit()) {
-                    this.SSthreshold = this.cwnd / 2;
-                    retransmitPacket(this.ackedSeqNum + 1);
-                    this.numDupAck--;
-                    this.cwnd = this.SSthreshold;
+            if(ackPacket.getAckNumber() == (this.ackedSeqNum ) ){//DUPLICATE ACK
+                if(this.currState == State.SLOW_START | this.currState == State.CONGESTION_AVOIDANCE) {
+                    this.numDupAck++;
+
+                    if (this.numDupAck == 3) {
+                        System.out.println("FAST RECOVERY");
+
+                        this.SSthreshold = this.cwnd / 2;
+                        this.cwnd = this.SSthreshold + 3;
+                        retransmitPacket(this.ackedSeqNum );
+                        currState = State.FAST_RECOVERY;
+                    }
+                }
+                if(currState == State.FAST_RECOVERY){
+
+//                    retransmitPacket(this.ackedSeqNum) ;
+                    System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
+                    cwnd ++;
                 }
             }
-            else{
-                if(this.cwnd < this.SSthreshold)
-                    this.cwnd = this.cwnd * 2;
-                else
+            else{//ACK
+//                if(this.cwnd < this.SSthreshold)
+//                    this.cwnd = this.cwnd * 2;
+//                else
+                ackedSeqNum = ackPacket.getAckNumber();
+                if(this.currState == State.SLOW_START) {
                     this.cwnd = this.cwnd + 1;
-                this.onWindowChange();
-            }
+                    this.numDupAck = 0;
+                    if(this.cwnd > this.SSthreshold)
+                        this.currState = State.CONGESTION_AVOIDANCE;
+                }
+                if(this.currState == State.CONGESTION_AVOIDANCE) {
+                    this.congestionAvoidanceTemp ++;
+                    if(congestionAvoidanceTemp == cwnd){
+                        congestionAvoidanceTemp = 0;
+                        cwnd ++;
+                    }
+                    numDupAck = 0;
+                }
+                if(currState == State.FAST_RECOVERY){
+                    System.out.println("OUT OF FAST RECOVERY");
+                    cwnd = SSthreshold;
+                    numDupAck = 0;
+                    currState = State.CONGESTION_AVOIDANCE;
+                }
 
+            }
+            this.onWindowChange();
         }
 
     }
@@ -159,8 +195,8 @@ public class TCPSocketImpl extends TCPSocket {
         }
     }
 
-    private void sendAck(int rcvSeqNum) throws Exception {
-        Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+    private void sendAck(int seqNum) throws Exception {
+        Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, seqNum, this.currSeqNum, "", 0);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
         this.enSocket.send(ackDatagramPacket);
     }
@@ -188,6 +224,7 @@ public class TCPSocketImpl extends TCPSocket {
                 this.enSocket.send(finAckDatagramPacket);
                 continue;
             }
+            System.out.println(receivedPacket.getSeqNumber());
             if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
                 writeToFile(receivedPacket);
                 nextToWriteOnFile++;
@@ -195,8 +232,11 @@ public class TCPSocketImpl extends TCPSocket {
                 sendAck(nextToWriteOnFile);
 
             }
-            else if(buffer.size() == 0 || receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber())
+            else if(buffer.size() == 0 || receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber()) {
                 buffer.add(receivedPacket);
+                sendAck(nextToWriteOnFile);
+
+            }
         }
 //        byte[] msg = new byte[Config.maxMsgSize];
 //        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
@@ -231,14 +271,14 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void close() throws Exception {
-        if(this.currState == State.TRANSFER || this.currState == State.CLOSE_WAIT) {
+        if(this.currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY || this.currState == State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
             this.currSeqNum++;
             Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
             DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
             while (true) {
                 this.enSocket.send(closeDatagramPacket);
-                this.currState = this.currState == State.TRANSFER ? State.FIN_WAIT_1 : State.LAST_ACK;
+                this.currState = (currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY)? State.FIN_WAIT_1 : State.LAST_ACK;
                 this.enSocket.setSoTimeout(1000);
 
                 while (true) {
