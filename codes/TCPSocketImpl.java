@@ -1,9 +1,9 @@
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.Random;
+import java.io.*;
 
 enum State{
     TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT, CLOSED ;
@@ -18,6 +18,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int currSeqNum;
     private Packet[] buffer = new Packet[Config.maxBufferSize];
     private long nextToWriteOnFile = 0;
+    private BufferedWriter writer;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -83,20 +84,32 @@ public class TCPSocketImpl extends TCPSocket {
         return (receivedPacket.getAckFlag().equals("1") || receivedPacket.getSynFlag().equals("1"));
     }
 
-    private void writeToFile(String pathToFile) {
-
+    private void writeToFile(Packet newPacket) throws Exception{
+        String data = newPacket.getData();
+        this.writer.write(data);
     }
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        while(true) {
+        String data;
+        this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
+
+        while(this.currState != State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket receivedDatagram = new DatagramPacket(msg, msg.length);
             Packet receivedPacket = new Packet(new String(msg));
+            int rcvSeqNum = receivedPacket.getSeqNumber();
             if(checkIfAckOrSyn(receivedPacket))
                 continue;
+            if (receivedPacket.getFinFlag().equals("1")) {
+                this.currState = State.CLOSE_WAIT;
+                this.currSeqNum++;
+                Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+                DatagramPacket finAckDatagramPacket = finAckPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
+                this.enSocket.send(finAckDatagramPacket);
+            }
             if(receivedPacket.getSeqNumber() == nextToWriteOnFile)
-                writeToFile(pathToFile);
+                writeToFile(receivedPacket);
         }
 //        byte[] msg = new byte[Config.maxMsgSize];
 //        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
@@ -125,6 +138,7 @@ public class TCPSocketImpl extends TCPSocket {
 //                }
 //            }
 //        }
+        this.writer.close();
     }
 
 
