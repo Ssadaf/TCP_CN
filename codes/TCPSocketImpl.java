@@ -20,6 +20,11 @@ public class TCPSocketImpl extends TCPSocket {
     private ArrayList<Packet> buffer = new ArrayList<>();
     private long nextToWriteOnFile = 0;
     private BufferedWriter writer;
+    private FileInputStream reader;
+    private ArrayList<DatagramPacket> sendData = new ArrayList<>();
+    private int cwnd;
+    private int ackedSeqNum;
+    private int numDupAck;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -33,8 +38,40 @@ public class TCPSocketImpl extends TCPSocket {
         this.destinationPort = destinationPort;
     }
 
+    public void retransmitPacket(int retransmitSeqNum){
+        
+    }
+
     @Override
-    public void send(String pathToFile){
+    public void send(String pathToFile) throws Exception{
+        File file = new File(pathToFile);
+        this.reader = new FileInputStream(file);
+        byte[] chunk = new byte[Config.chunkSize];
+        int chunkLen = 0;
+        this.currSeqNum = 0;
+        this.ackedSeqNum = 0;
+        this.numDupAck = 0;
+        while ((chunkLen = reader.read(chunk)) != -1) {
+            while(currSeqNum <= this.ackedSeqNum +this.cwnd + this.numDupAck) {
+                this.currSeqNum ++;
+                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
+                DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+                sendData.add(sendDatagramPacket);
+                this.enSocket.send(sendDatagramPacket);
+            }
+            byte[] msg = new byte[Config.maxMsgSize];
+            DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
+            Packet ackPacket = new Packet(new String(msg));
+            if(ackPacket.getAckNumber() == (this.ackedSeqNum + 1) ){
+                this.numDupAck ++;
+                retransmitPacket(this.ackedSeqNum + 1);
+            }
+            else{
+                this.cwnd ++;
+            }
+
+        }
+
         throw new RuntimeException("Not implemented!");
     }
 
