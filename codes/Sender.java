@@ -6,8 +6,8 @@ public class Sender {
         TCPSocketImpl tcpSocket = new TCPSocketImpl(Config.senderIP, Config.senderPortNum);
         tcpSocket.connect(Config.receiverIP, Config.receiverPortNum);
         tcpSocket.send("../sending.txt");
-        tcpSocket.close();
+//        tcpSocket.close();
 //        tcpSocket.receive();
-//       tcpSocket.saveCongestionWindowPlot();
+       tcpSocket.saveCongestionWindowPlot();
     }
 }

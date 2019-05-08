@@ -7,7 +7,7 @@ import java.util.Random;
 import java.io.*;
 
 enum State{
-    TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT, CLOSED ;
+    TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT, CLOSED, LAST_ACK ;
 }
 
 public class TCPSocketImpl extends TCPSocket {
@@ -160,10 +160,12 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        FileWriter newFile = new FileWriter(pathToFile);
-        newFile.close();
-        this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
-        this.nextToWriteOnFile = 1;
+        if(pathToFile.equals("")) {
+            FileWriter newFile = new FileWriter(pathToFile);
+            newFile.close();
+            this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
+            this.nextToWriteOnFile = 1;
+        }
 
         while(this.currState != State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
@@ -224,14 +226,14 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void close() throws Exception {
-        if(this.currState == State.TRANSFER) {
+        if(this.currState == State.TRANSFER || this.currState == State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
             this.currSeqNum++;
-            Packet closePacket = new Packet("0", "0", "1", Config.senderPortNum, Config.receiverPortNum, 0, this.currSeqNum, "", 0);
+            Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
             DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
             while (true) {
                 this.enSocket.send(closeDatagramPacket);
-                this.currState = State.FIN_WAIT_1;
+                this.currState = this.currState == State.TRANSFER ? State.FIN_WAIT_1 : State.LAST_ACK;
                 this.enSocket.setSoTimeout(1000);
 
                 while (true) {
@@ -242,21 +244,18 @@ public class TCPSocketImpl extends TCPSocket {
                         if (!ackPacket.getAckFlag().equals("1"))
                             throw new Exception("This message is not ACK");
                         if (ackPacket.getAckNumber() != (this.currSeqNum + 1))
-                            //TODO AFTER RECEIVE
+                            //TODO: AFTER RECEIVE
                             throw new Exception("This message is not my ACK -- WILL CHANGE AFTER IMPLEMENTATION OF RECEIVE");
-                        this.currState = State.FIN_WAIT_2;
-                        this.receive("");
+                        this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
+                        if(this.currState == State.FIN_WAIT_2)
+                            this.receive("");
                     } catch (SocketTimeoutException e) {
                         // timeout exception.
                         System.out.println("Timeout reached!!! " + e);
                         break;
                     }
                 }
-
             }
-        }
-        else{
-            
         }
     }
 
