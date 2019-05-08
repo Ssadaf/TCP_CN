@@ -18,7 +18,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int sourcePort;
     private int currSeqNum;
     private ArrayList<Packet> buffer = new ArrayList<>();
-    private long nextToWriteOnFile;
+    private int nextToWriteOnFile;
     private BufferedWriter writer;
     private FileInputStream reader;
     private int cwnd;
@@ -139,11 +139,15 @@ public class TCPSocketImpl extends TCPSocket {
         this.writer.write(data);
     }
 
-    private void addAllValidPacketsToFile(String pathToFile) throws Exception{
-        while(buffer.get(0).getSeqNumber() == nextToWriteOnFile) {
-            writeToFile( buffer.get(0));
-            nextToWriteOnFile ++;
-            buffer.remove(0);
+    private void addAllValidPacketsToFile() throws Exception{
+        while(buffer.size()>0) {
+            if((buffer.get(0).getSeqNumber() == nextToWriteOnFile)) {
+                writeToFile(buffer.get(0));
+                nextToWriteOnFile++;
+                buffer.remove(0);
+            }
+            else
+                return;
         }
     }
 
@@ -176,11 +180,12 @@ public class TCPSocketImpl extends TCPSocket {
                 this.enSocket.send(finAckDatagramPacket);
                 continue;
             }
-            sendAck(receivedPacket.getSeqNumber());
             if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
                 writeToFile(receivedPacket);
                 nextToWriteOnFile++;
-                addAllValidPacketsToFile(pathToFile);
+                addAllValidPacketsToFile();
+                sendAck(nextToWriteOnFile);
+
             }
             else if(buffer.size() == 0 || receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber())
                 buffer.add(receivedPacket);
