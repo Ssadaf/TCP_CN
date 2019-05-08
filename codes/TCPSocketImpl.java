@@ -108,9 +108,9 @@ public class TCPSocketImpl extends TCPSocket {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket receivedDatagram = new DatagramPacket(msg, msg.length);
             Packet receivedPacket = new Packet(new String(msg));
-            sendAck(receivedPacket.getSeqNumber());
             if(checkIfAckOrSyn(receivedPacket))
                 continue;
+            sendAck(receivedPacket.getSeqNumber());
             if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
                 writeToFile(pathToFile, receivedPacket.getData());
                 nextToWriteOnFile++;
