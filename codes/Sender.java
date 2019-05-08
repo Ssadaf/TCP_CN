@@ -7,6 +7,7 @@ public class Sender {
         tcpSocket.connect(Config.receiverIP, Config.receiverPortNum);
 //        tcpSocket.send("sending.mp3");
         tcpSocket.close();
+//        tcpSocket.receive();
 //       tcpSocket.saveCongestionWindowPlot();
     }
 }

@@ -5,8 +5,11 @@ public class Receiver {
     public static void main(String[] args) throws Exception {
         TCPServerSocketImpl tcpServerSocket = new TCPServerSocketImpl(Config.receiverPortNum);
         TCPSocket tcpSocket = tcpServerSocket.accept();
+
+        tcpSocket.receive("");
+
 //        tcpSocket.receive("receiving.mp3");
-//        tcpSocket.close();
+        tcpSocket.close();
 //        tcpServerSocket.close();
     }
 }

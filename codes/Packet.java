@@ -7,8 +7,8 @@ class Packet implements java.io.Serializable
     private String ackFlag;
     private String synFlag;
     private String finFlag;
-    private String sourcePort;
-    private String destinationPort;
+    private int sourcePort;
+    private int destinationPort;
     private int ackNumber;
     private int seqNumber;
     private String data;
@@ -16,7 +16,7 @@ class Packet implements java.io.Serializable
     private int offset;
     private int length;
 
-    public Packet(String ackFlag, String synFlag, String finFlag,String sourcePort, String destinationPort, int ackNumber, int seqNumber, String data, int offset) {
+    public Packet(String ackFlag, String synFlag, String finFlag,int sourcePort, int destinationPort, int ackNumber, int seqNumber, String data, int offset) {
         this.ackFlag = ackFlag;
         this.synFlag = synFlag;
         this.finFlag = finFlag;
@@ -31,53 +31,59 @@ class Packet implements java.io.Serializable
 
     public Packet(String data){
         String[] tokens = data.split("\n");
+
         for(int i=0; i<tokens.length; i++){
             if (tokens[i].startsWith("ack:")){
-                String[] parts = data.split(":");
+                String[] parts = tokens[i].split(":");
                 this.ackFlag = parts[1];
             }
             else if(tokens[i].startsWith("syn:")){
-                String[] parts = data.split(":");
+                String[] parts = tokens[i].split(":");
                 this.synFlag = parts[1];
             }
             else if(tokens[i].startsWith("fin:")){
-                String[] parts = data.split(":");
+                String[] parts = tokens[i].split(":");
                 this.finFlag = parts[1];
             }
             else if(tokens[i].startsWith("ack_num:")){
-                String[] parts = data.split(":");
+                String[] parts = tokens[i].split(":");
                 this.ackNumber = Integer.parseInt(parts[1]);
             }
             else if(tokens[i].startsWith("source_port:")){
-                String[] parts = data.split(":");
-                this.sourcePort = parts[1];
+                String[] parts = tokens[i].split(":");
+                this.sourcePort = Integer.parseInt(parts[1]);
             }
             else if(tokens[i].startsWith("destination_port:")){
-                String[] parts = data.split(":");
-                this.destinationPort = parts[1];
+                String[] parts = tokens[i].split(":");
+                this.destinationPort = Integer.parseInt(parts[1]);
             }
             else if(tokens[i].startsWith("seqNum:")){
-                String[] parts = data.split(":");
+                String[] parts = tokens[i].split(":");
                 this.seqNumber = Integer.parseInt(parts[1]);
             }
             else if(tokens[i].startsWith("data:")){
-                String[] parts = data.split(":");
-                this.data = parts[1];
+                String[] parts = tokens[i].split(":");
+                if(parts.length > 1)
+                    this.data = parts[1];
+                else
+                    this.data = "";
             }
         }
     }
 
     public String createMessage(){
         String msg = "";
-        msg += "ack: " + ackFlag + "\nsyn: " + synFlag +"\nfin: "+ finFlag+ "\nack_num: " + String.valueOf(ackNumber)
-             + "\nsource_port: " + sourcePort + "\ndestination_port: " + destinationPort + "\nseqNum" + String.valueOf(seqNumber) + "\ndata: " + data + "\n";
+        msg += "ack:" + ackFlag + "\nsyn:" + synFlag +"\nfin:"+ finFlag+ "\nack_num:" + String.valueOf(ackNumber)
+             + "\nsource_port:" + String.valueOf(sourcePort) + "\ndestination_port:" + String.valueOf(destinationPort) + "\nseqNum:" + String.valueOf(seqNumber) + "\ndata:" + data + "\n";
         return msg;
     }
 
-    public String getDestinationPort()
+    public int getDestinationPort()
     {
         return destinationPort;
     }
+
+    public int getSourcePort(){ return sourcePort;}
 
     public String getAckFlag()
     {
@@ -100,6 +106,8 @@ class Packet implements java.io.Serializable
     {
         return ackNumber;
     }
+
+
 
     public String getData()
     {

@@ -6,7 +6,7 @@ import java.net.SocketTimeoutException;
 import java.util.Random;
 
 enum State{
-    TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT ;
+    TRANSFER , FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, TIMED_WAIT, CLOSED ;
 }
 
 public class TCPSocketImpl extends TCPSocket {
@@ -46,9 +46,9 @@ public class TCPSocketImpl extends TCPSocket {
                 try {
                     this.enSocket.receive(synAckDatagramPacket);
                     synAckPacket = new Packet(new String(msg));
-                    if(synAckPacket.getSynFlag()!="1" || synAckPacket.getAckFlag() !="1")
+                    if(!synAckPacket.getSynFlag().equals("1") || !synAckPacket.getAckFlag().equals("1"))
                         throw new Exception("This message is not SYN ACK");
-                    this.destinationPort = Integer.parseInt(synAckPacket.getDestinationPort());
+                    this.destinationPort = synAckPacket.getSourcePort();
                     int rcvSeqNum = synAckPacket.getSeqNumber();
                     return rcvSeqNum;
                 }
@@ -64,13 +64,13 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public void connect(String serverIP, int serverPort) throws Exception {
 
-        Packet synPacket = new Packet("0", "1", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), 0, 0, "", 0);
+        Packet synPacket = new Packet("0", "1", "0", Config.senderPortNum, Config.receiverPortNum, 0, 0, "", 0);
         DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(serverPort, serverIP);
         int rcvSeqNum = sendSyn(synDatagramPacket);
 
 
-        Packet ackPacket = new Packet("1", "0", "0", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), rcvSeqNum + 1, 0, "", 0);
-        DatagramPacket ackDatagramPacket = synPacket.convertToDatagramPacket(Config.receiverPortNum, serverIP);
+        Packet ackPacket = new Packet("1", "0", "0", Config.senderPortNum, Config.receiverPortNum, rcvSeqNum + 1, 0, "", 0);
+        DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(Config.receiverPortNum, serverIP);
 
         for(int i=0; i<7; i++)
             this.enSocket.send(ackDatagramPacket);
@@ -81,42 +81,68 @@ public class TCPSocketImpl extends TCPSocket {
     public void receive(String pathToFile) throws Exception {
         byte[] msg = new byte[Config.maxMsgSize];
         DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
-        this.enSocket.receive(newDatagramPacket);
-        Packet newPacket = new Packet(new String(msg));
-        int rcvSeqNum = newPacket.getSeqNumber();
-        if(newPacket.getFinFlag().equals("1")){
-            if(this.currState == State.FIN_WAIT_2){
-                this.currState = State.TIMED_WAIT;
+        while((this.currState != State.CLOSED) &(this.currState != State.CLOSE_WAIT)) {
+            this.enSocket.receive(newDatagramPacket);
+            Packet newPacket = new Packet(new String(msg));
+            int rcvSeqNum = newPacket.getSeqNumber();
+            if (newPacket.getFinFlag().equals("1")) {
+                if (this.currState == State.FIN_WAIT_2) {
+                    this.currState = State.TIMED_WAIT;
 
-                this.currSeqNum ++;
-                Packet synPacket = new Packet("1", "0", "0", String.valueOf(sourcePort), String.valueOf(destinationPort), rcvSeqNum + 1, this.currSeqNum, "", 0);
-                DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
-                for(int i = 0; i < 7; i++)
-                    sendSyn(synDatagramPacket);
-            }
-            else{
-                this.currState = State.CLOSE_WAIT;
+                    this.currSeqNum++;
+                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
+                    for (int i = 0; i < 7; i++)
+                        this.enSocket.send(synDatagramPacket);
+                    this.currState = State.CLOSED;
 
-                this.currSeqNum ++;
-                Packet synPacket = new Packet("1", "0", "0", String.valueOf(sourcePort), String.valueOf(destinationPort), rcvSeqNum + 1, this.currSeqNum, "", 0);
-                DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
-                sendSyn(synDatagramPacket);
+                } else {
+                    this.currState = State.CLOSE_WAIT;
+
+                    this.currSeqNum++;
+                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
+                    this.enSocket.send(synDatagramPacket);
+
+
+                }
             }
         }
-        else if(newPacket.getAckFlag().equals("1")){
-            if((this.currState == State.FIN_WAIT_1) & (newPacket.getAckNumber() == this.currSeqNum + 1 ))
-                this.currState = State.FIN_WAIT_2;
-        }
-        throw new RuntimeException("Not implemented!");
     }
+
 
     @Override
     public void close() throws Exception {
+        byte[] msg = new byte[Config.maxMsgSize];
         this.currSeqNum ++;
-        Packet closePacket = new Packet("0", "0", "1", String.valueOf(Config.senderPortNum), String.valueOf(Config.receiverPortNum), 0, this.currSeqNum, "", 0);
-        DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(destinationPort, destinationIP);
-        sendSyn(closeDatagramPacket);
-        this.currState = State.FIN_WAIT_1;
+        Packet closePacket = new Packet("0", "0", "1", Config.senderPortNum, Config.receiverPortNum, 0, this.currSeqNum, "", 0);
+        DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+        while(true){
+            this.enSocket.send(closeDatagramPacket);
+            this.currState = State.FIN_WAIT_1;
+            this.enSocket.setSoTimeout(1000);
+
+            while (true){
+                try{
+                    DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
+                    this.enSocket.receive(ackDatagramPacket);
+                    Packet ackPacket = new Packet(new String(msg));
+                    if(!ackPacket.getAckFlag().equals("1"))
+                        throw new Exception("This message is not ACK");
+                    if(ackPacket.getAckNumber() != (this.currSeqNum + 1) )
+                        //TODO AFTER RECEIVE
+                        throw new Exception("This message is not my ACK -- WILL CHANGE AFTER IMPLEMENTATION OF RECEIVE");
+                    this.currState = State.FIN_WAIT_2;
+                    this.receive("");
+                }
+                catch (SocketTimeoutException e) {
+                    // timeout exception.
+                    System.out.println("Timeout reached!!! " + e);
+                    break;
+                }
+            }
+
+        }
     }
 
     @Override

@@ -21,7 +21,7 @@ public class TCPServerSocketImpl extends TCPServerSocket {
                     DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
                     this.enSocket.receive(ackDatagramPacket);
                     Packet ackPacket = new Packet(new String(msg));
-                    if(ackPacket.getAckFlag()!="1")
+                    if(!ackPacket.getAckFlag().equals("1"))
                         throw new Exception("This message is not ACK");
                     return;
                 }
@@ -41,12 +41,12 @@ public class TCPServerSocketImpl extends TCPServerSocket {
         this.enSocket.receive(newDatagramPacket);
         System.out.println(new String(msg));
         Packet synPacket = new Packet(new String(msg));
-        if(synPacket.getSynFlag()!="1")
+        if(!synPacket.getSynFlag().equals("1"))
             throw new Exception("This message is not SYN");
         int rcvSeqNum = synPacket.getSeqNumber();
 
         TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
-        Packet synAckPacket = new Packet("1", "1", "0", String.valueOf(9797), String.valueOf(Config.senderPortNum), rcvSeqNum + 1, 0, "", 0);
+        Packet synAckPacket = new Packet("1", "1", "0",9797, Config.senderPortNum, rcvSeqNum + 1, 0, "", 0);
         DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
 
         sendSynAck(synAckMsg);
