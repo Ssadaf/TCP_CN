@@ -64,7 +64,7 @@ public class TCPSocketImpl extends TCPSocket {
         while (reader.read(chunk) != -1) {
             while(currSeqNum <= this.ackedSeqNum +this.cwnd + this.numDupAck) {
                 this.currSeqNum ++;
-                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
+                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                 buffer.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
@@ -137,6 +137,7 @@ public class TCPSocketImpl extends TCPSocket {
     private void writeToFile(Packet newPacket) throws Exception{
         String data = newPacket.getData();
         this.writer.write(data);
+        System.out.println("Writing to file: " + data);
     }
 
     private void addAllValidPacketsToFile() throws Exception{
