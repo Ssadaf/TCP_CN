@@ -3,6 +3,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
 import java.util.Random;
 
 enum State{
@@ -16,7 +17,7 @@ public class TCPSocketImpl extends TCPSocket {
     private State currState;
     private int sourcePort;
     private int currSeqNum;
-    private Packet[] buffer = new Packet[Config.maxBufferSize];
+    private ArrayList<Packet> buffer = new ArrayList<>();
     private long nextToWriteOnFile = 0;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
@@ -87,6 +88,14 @@ public class TCPSocketImpl extends TCPSocket {
 
     }
 
+    private void addAllValidPacketsToFile(String pathToFile) {
+        while(buffer.get(0).getSeqNumber() == nextToWriteOnFile) {
+            writeToFile(pathToFile, buffer.get(0).getData());
+            nextToWriteOnFile ++;
+            buffer.remove(0);
+        }
+    }
+
     @Override
     public void receive(String pathToFile) throws Exception {
         while(true) {
@@ -95,8 +104,13 @@ public class TCPSocketImpl extends TCPSocket {
             Packet receivedPacket = new Packet(new String(msg));
             if(checkIfAckOrSyn(receivedPacket))
                 continue;
-            if(receivedPacket.getSeqNumber() == nextToWriteOnFile)
-                writeToFile(pathToFile);
+            if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
+                writeToFile(pathToFile, receivedPacket.getData());
+                nextToWriteOnFile++;
+                addAllValidPacketsToFile(pathToFile);
+            }
+            else
+                buffer.add(receivedPacket);
         }
 //        byte[] msg = new byte[Config.maxMsgSize];
 //        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
