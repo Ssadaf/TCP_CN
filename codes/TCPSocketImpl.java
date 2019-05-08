@@ -24,6 +24,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int cwnd;
     private int ackedSeqNum;
     private int numDupAck;
+    private int SSthreshold;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -75,12 +76,18 @@ public class TCPSocketImpl extends TCPSocket {
             if(ackPacket.getAckNumber() == (this.ackedSeqNum + 1) ){
                 this.numDupAck ++;
                 if(this.numDupAck > getCurrentDupAckLimit()) {
+                    this.SSthreshold = this.cwnd / 2;
                     retransmitPacket(this.ackedSeqNum + 1);
                     this.numDupAck--;
+                    this.cwnd = this.SSthreshold;
                 }
             }
             else{
-                this.cwnd  = this.cwnd * 2;
+                if(this.cwnd < this.SSthreshold)
+                    this.cwnd = this.cwnd * 2;
+                else
+                    this.cwnd = this.cwnd + 1;
+                this.onWindowChange();
             }
 
         }
@@ -259,11 +266,11 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public long getSSThreshold() {
-        throw new RuntimeException("Not implemented!");
+        return this.SSthreshold;
     }
 
     @Override
     public long getWindowSize() {
-        throw new RuntimeException("Not implemented!");
+        return this.cwnd;
     }
 }
