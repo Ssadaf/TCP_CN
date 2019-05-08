@@ -9,7 +9,7 @@ public class Receiver {
         tcpSocket.receive("");
 
 //        tcpSocket.receive("receiving.mp3");
-        tcpSocket.close();
+//        tcpSocket.close();
 //        tcpServerSocket.close();
     }
 }

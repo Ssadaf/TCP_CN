@@ -16,6 +16,8 @@ public class TCPSocketImpl extends TCPSocket {
     private State currState;
     private int sourcePort;
     private int currSeqNum;
+    private Packet[] buffer = new Packet[Config.maxBufferSize];
+    private long nextToWriteOnFile = 0;
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -77,37 +79,52 @@ public class TCPSocketImpl extends TCPSocket {
 
     }
 
+    private boolean checkIfAckOrSyn(Packet receivedPacket) {
+        return (receivedPacket.getAckFlag().equals("1") || receivedPacket.getSynFlag().equals("1"));
+    }
+
+    private void writeToFile(String pathToFile) {
+
+    }
+
     @Override
     public void receive(String pathToFile) throws Exception {
-        byte[] msg = new byte[Config.maxMsgSize];
-        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
-        while((this.currState != State.CLOSED) &(this.currState != State.CLOSE_WAIT)) {
-            this.enSocket.receive(newDatagramPacket);
-            Packet newPacket = new Packet(new String(msg));
-            int rcvSeqNum = newPacket.getSeqNumber();
-            if (newPacket.getFinFlag().equals("1")) {
-                if (this.currState == State.FIN_WAIT_2) {
-                    this.currState = State.TIMED_WAIT;
-
-                    this.currSeqNum++;
-                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
-                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
-                    for (int i = 0; i < 7; i++)
-                        this.enSocket.send(synDatagramPacket);
-                    this.currState = State.CLOSED;
-
-                } else {
-                    this.currState = State.CLOSE_WAIT;
-
-                    this.currSeqNum++;
-                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
-                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
-                    this.enSocket.send(synDatagramPacket);
-
-
-                }
-            }
+        while(true) {
+            byte[] msg = new byte[Config.maxMsgSize];
+            DatagramPacket receivedDatagram = new DatagramPacket(msg, msg.length);
+            Packet receivedPacket = new Packet(new String(msg));
+            if(checkIfAckOrSyn(receivedPacket))
+                continue;
+            if(receivedPacket.getSeqNumber() == nextToWriteOnFile)
+                writeToFile(pathToFile);
         }
+//        byte[] msg = new byte[Config.maxMsgSize];
+//        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
+//        while((this.currState != State.CLOSED) &(this.currState != State.CLOSE_WAIT)) {
+//            this.enSocket.receive(newDatagramPacket);
+//            Packet newPacket = new Packet(new String(msg));
+//            int rcvSeqNum = newPacket.getSeqNumber();
+//            if (newPacket.getFinFlag().equals("1")) {
+//                if (this.currState == State.FIN_WAIT_2) {
+//                    this.currState = State.TIMED_WAIT;
+//
+//                    this.currSeqNum++;
+//                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+//                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
+//                    for (int i = 0; i < 7; i++)
+//                        this.enSocket.send(synDatagramPacket);
+//                    this.currState = State.CLOSED;
+//
+//                } else {
+//                    this.currState = State.CLOSE_WAIT;
+//
+//                    this.currSeqNum++;
+//                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+//                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
+//                    this.enSocket.send(synDatagramPacket);
+//                }
+//            }
+//        }
     }
 
 

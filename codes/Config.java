@@ -6,4 +6,5 @@ class Config
     public static final String receiverIP = "127.0.0.1";
     public static final int receiverPortNum = 7777;
     public static final int maxMsgSize = 65535;
+    public static final int maxBufferSize = 2000000;
 }
