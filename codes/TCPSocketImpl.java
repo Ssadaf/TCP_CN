@@ -224,35 +224,39 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void close() throws Exception {
-        byte[] msg = new byte[Config.maxMsgSize];
-        this.currSeqNum ++;
-        Packet closePacket = new Packet("0", "0", "1", Config.senderPortNum, Config.receiverPortNum, 0, this.currSeqNum, "", 0);
-        DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-        while(true){
-            this.enSocket.send(closeDatagramPacket);
-            this.currState = State.FIN_WAIT_1;
-            this.enSocket.setSoTimeout(1000);
+        if(this.currState == State.TRANSFER) {
+            byte[] msg = new byte[Config.maxMsgSize];
+            this.currSeqNum++;
+            Packet closePacket = new Packet("0", "0", "1", Config.senderPortNum, Config.receiverPortNum, 0, this.currSeqNum, "", 0);
+            DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+            while (true) {
+                this.enSocket.send(closeDatagramPacket);
+                this.currState = State.FIN_WAIT_1;
+                this.enSocket.setSoTimeout(1000);
 
-            while (true){
-                try{
-                    DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
-                    this.enSocket.receive(ackDatagramPacket);
-                    Packet ackPacket = new Packet(new String(msg));
-                    if(!ackPacket.getAckFlag().equals("1"))
-                        throw new Exception("This message is not ACK");
-                    if(ackPacket.getAckNumber() != (this.currSeqNum + 1) )
-                        //TODO AFTER RECEIVE
-                        throw new Exception("This message is not my ACK -- WILL CHANGE AFTER IMPLEMENTATION OF RECEIVE");
-                    this.currState = State.FIN_WAIT_2;
-                    this.receive("");
+                while (true) {
+                    try {
+                        DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
+                        this.enSocket.receive(ackDatagramPacket);
+                        Packet ackPacket = new Packet(new String(msg));
+                        if (!ackPacket.getAckFlag().equals("1"))
+                            throw new Exception("This message is not ACK");
+                        if (ackPacket.getAckNumber() != (this.currSeqNum + 1))
+                            //TODO AFTER RECEIVE
+                            throw new Exception("This message is not my ACK -- WILL CHANGE AFTER IMPLEMENTATION OF RECEIVE");
+                        this.currState = State.FIN_WAIT_2;
+                        this.receive("");
+                    } catch (SocketTimeoutException e) {
+                        // timeout exception.
+                        System.out.println("Timeout reached!!! " + e);
+                        break;
+                    }
                 }
-                catch (SocketTimeoutException e) {
-                    // timeout exception.
-                    System.out.println("Timeout reached!!! " + e);
-                    break;
-                }
+
             }
-
+        }
+        else{
+            
         }
     }
 
