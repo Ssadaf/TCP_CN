@@ -21,7 +21,6 @@ public class TCPSocketImpl extends TCPSocket {
     private long nextToWriteOnFile = 0;
     private BufferedWriter writer;
     private FileInputStream reader;
-    private ArrayList<DatagramPacket> sendData = new ArrayList<>();
     private int cwnd;
     private int ackedSeqNum;
     private int numDupAck;
@@ -38,15 +37,20 @@ public class TCPSocketImpl extends TCPSocket {
         this.destinationPort = destinationPort;
     }
 
-    public void retransmitPacket(int retransmitSeqNum){
 
-    }
-
-    public int getCurrentDupAckLimit(){
-        if(this.ackedSeqNum == (this.currSeqNum - this.cwnd + 1) )
+    public int getCurrentDupAckLimit() {
+        if (this.ackedSeqNum == (this.currSeqNum - this.cwnd + 1))
             return 3;
         else
             return 2;
+    }
+    public void retransmitPacket(int retransmitSeqNum) throws Exception{
+        for(Packet packet: buffer) {
+            if(packet.getSeqNumber() == retransmitSeqNum) {
+                DatagramPacket sendDatagramPacket = packet.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+                this.enSocket.send(sendDatagramPacket);
+            }
+        }
     }
 
     @Override
@@ -57,12 +61,12 @@ public class TCPSocketImpl extends TCPSocket {
         this.currSeqNum = 0;
         this.ackedSeqNum = 0;
         this.numDupAck = 0;
-        while ( reader.read(chunk) != -1) {
+        while (reader.read(chunk) != -1) {
             while(currSeqNum <= this.ackedSeqNum +this.cwnd + this.numDupAck) {
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-                sendData.add(sendDatagramPacket);
+                buffer.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
             }
             byte[] msg = new byte[Config.maxMsgSize];
