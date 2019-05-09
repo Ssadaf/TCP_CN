@@ -82,6 +82,7 @@ public class TCPSocketImpl extends TCPSocket {
         timer.cancel();
         timer = new Timer();
         createNewTimerTask();
+        timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
     }
 
     @Override
