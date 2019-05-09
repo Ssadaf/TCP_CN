@@ -78,6 +78,7 @@ public class TCPSocketImpl extends TCPSocket {
                 this.enSocket.send(sendDatagramPacket);
             }
         }
+        System.out.println("RETRANSMIT " + retransmitSeqNum);
         timer.cancel();
         timer = new Timer();
         createNewTimerTask();
@@ -105,7 +106,7 @@ public class TCPSocketImpl extends TCPSocket {
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                 buffer.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
-                System.out.println("SENDING" + currState + currSeqNum);
+                System.out.println("SENDING " + currState + currSeqNum);
             }
 
             byte[] msg = new byte[Config.maxMsgSize];
