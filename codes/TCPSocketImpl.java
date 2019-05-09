@@ -35,6 +35,11 @@ public class TCPSocketImpl extends TCPSocket {
                 try {
                     retransmitPacket(ackedSeqNum);
                     cwnd = 1;
+                    SSthreshold = cwnd / 2;
+                    numDupAck = 0;
+
+                    currState = State.SLOW_START;
+
                     timer.cancel();
                     timer = new Timer();
                     createNewTimerTask();
@@ -97,6 +102,7 @@ public class TCPSocketImpl extends TCPSocket {
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                 buffer.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
+                System.out.println("SENDING" + currState + currSeqNum);
             }
 
             byte[] msg = new byte[Config.maxMsgSize];
@@ -202,7 +208,7 @@ public class TCPSocketImpl extends TCPSocket {
     private void writeToFile(Packet newPacket) throws Exception{
         String data = newPacket.getData();
         this.writer.write(data);
-        System.out.println("Writing to file: " + data);
+        System.out.println("Writing to file: " + newPacket.getSeqNumber() +":   "+ data);
     }
 
     private void addAllValidPacketsToFile() throws Exception{
