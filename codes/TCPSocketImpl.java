@@ -2,6 +2,8 @@ import java.net.DatagramPacket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.io.*;
+import java.util.Timer;
+import java.util.TimerTask;
 
 enum State{
     SLOW_START, CONGESTION_AVOIDANCE, FAST_RECOVERY,
@@ -24,6 +26,26 @@ public class TCPSocketImpl extends TCPSocket {
     private int numDupAck;
     private int SSthreshold;
     private int congestionAvoidanceTemp;
+    private Timer timer = new Timer();
+    private TimerTask task;
+
+    public void createNewTimerTask() {
+        task =  new TimerTask() {
+            public void run() {
+                try {
+                    retransmitPacket(ackedSeqNum);
+                    cwnd = 1;
+                    timer.cancel();
+                    timer = new Timer();
+                    createNewTimerTask();
+                    timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+                } catch (Exception e) {
+                    System.out.println("Retransmission timeout failed.");
+                    e.printStackTrace();
+                }
+            }
+        };
+    }
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -37,7 +59,6 @@ public class TCPSocketImpl extends TCPSocket {
     public void setDestinationPort(int destinationPort){
         this.destinationPort = destinationPort;
     }
-
 
     public int getCurrentDupAckLimit() {
         if (this.ackedSeqNum == (this.currSeqNum - this.cwnd + 1))
@@ -65,6 +86,8 @@ public class TCPSocketImpl extends TCPSocket {
         this.numDupAck = 0;
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
+        createNewTimerTask();
+        timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
         while (true) {
             while(currSeqNum <= this.ackedSeqNum + this.cwnd + this.numDupAck) {
                 if(reader.read(chunk) == -1)
@@ -101,6 +124,10 @@ public class TCPSocketImpl extends TCPSocket {
             }
             else{//ACK
                 ackedSeqNum = ackPacket.getAckNumber();
+                timer.cancel();
+                timer = new Timer();
+                createNewTimerTask();
+                timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
                 if(this.currState == State.SLOW_START) {
                     this.cwnd = this.cwnd + 1;
                     this.numDupAck = 0;
@@ -121,7 +148,6 @@ public class TCPSocketImpl extends TCPSocket {
                     numDupAck = 0;
                     currState = State.CONGESTION_AVOIDANCE;
                 }
-
             }
             this.onWindowChange();
         }
