@@ -8,5 +8,5 @@ class Config
     public static final int maxMsgSize = 65535;
     public static final int maxBufferSize = 2000000;
     public static final int chunkSize = 512;
-    public static final long receiveTimeout = 1000;
+    public static final long receiveTimeout = 3000;
 }

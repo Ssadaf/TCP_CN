@@ -1,3 +1,5 @@
+import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
+
 import java.net.DatagramPacket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
@@ -18,6 +20,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int sourcePort;
     private int currSeqNum;
     private ArrayList<Packet> buffer = new ArrayList<>();
+    private ArrayList<Packet> sentPackets = new ArrayList<>();
     private int nextToWriteOnFile;
     private BufferedWriter writer;
     private FileInputStream reader;
@@ -33,6 +36,7 @@ public class TCPSocketImpl extends TCPSocket {
         task =  new TimerTask() {
             public void run() {
                 try {
+                    System.out.println("TIMEDOUT");
                     retransmitPacket(ackedSeqNum);
                     cwnd = 1;
                     SSthreshold = Math.max(1, cwnd / 2);
@@ -72,17 +76,27 @@ public class TCPSocketImpl extends TCPSocket {
             return 2;
     }
     public void retransmitPacket(int retransmitSeqNum) throws Exception{
-        for(Packet packet: buffer) {
+        for(Packet packet: sentPackets) {
             if(packet.getSeqNumber() == retransmitSeqNum) {
                 DatagramPacket sendDatagramPacket = packet.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                 this.enSocket.send(sendDatagramPacket);
             }
         }
-        System.out.println("RETRANSMIT " + retransmitSeqNum);
+        System.out.println("RETRANSMIT " + currState+"  " + retransmitSeqNum + " ACKED  " + ackedSeqNum);
         timer.cancel();
         timer = new Timer();
         createNewTimerTask();
         timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+    }
+
+    public void cleanSentBuffer(){
+        while(sentPackets.size()>0) {
+            if ((sentPackets.get(0).getSeqNumber() < ackedSeqNum)) {
+                sentPackets.remove(0);
+            }
+            else
+                return;
+        }
     }
 
     @Override
@@ -96,16 +110,19 @@ public class TCPSocketImpl extends TCPSocket {
         this.numDupAck = 0;
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
+        int windowLimit;
         createNewTimerTask();
         timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
         while (true) {
-            while(currSeqNum <= this.ackedSeqNum + this.cwnd + this.numDupAck) {
+            windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
+            System.out.println("START  " + ackedSeqNum +"   " + windowLimit);
+            while(currSeqNum <= windowLimit) {
                 if(reader.read(chunk) == -1)
                     return;
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-                buffer.add(sendPacket);
+                sentPackets.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
                 System.out.println("SENDING " + currState + currSeqNum);
             }
@@ -114,6 +131,8 @@ public class TCPSocketImpl extends TCPSocket {
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
             this.enSocket.receive(ackDatagram);
             Packet ackPacket = new Packet(new String(msg));
+
+            System.out.println("RECEIVED" + ackPacket.getAckNumber());
 
             if(ackPacket.getAckNumber() == (this.ackedSeqNum ) ){//DUPLICATE ACK
                 if(this.currState == State.SLOW_START | this.currState == State.CONGESTION_AVOIDANCE) {
@@ -132,13 +151,16 @@ public class TCPSocketImpl extends TCPSocket {
                     System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
                     cwnd ++;
                 }
+
             }
             else{//ACK
+
                 ackedSeqNum = ackPacket.getAckNumber();
                 timer.cancel();
-                timer = new Timer();
-                createNewTimerTask();
-                timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+
+                cleanSentBuffer();
+
+
                 if(this.currState == State.SLOW_START) {
                     this.cwnd = this.cwnd + (ackPacket.getAckNumber() - ackedSeqNum);
                     this.numDupAck = 0;
@@ -217,6 +239,8 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void addAllValidPacketsToFile() throws Exception{
+        if(buffer.size()>0)
+            System.out.println("ALL "+ buffer.get(0).getSeqNumber() + "####" + nextToWriteOnFile );
         while(buffer.size()>0) {
             if((buffer.get(0).getSeqNumber() == nextToWriteOnFile)) {
                 writeToFile(buffer.get(0));
@@ -229,6 +253,7 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void sendAck(int seqNum) throws Exception {
+        System.out.println("SENDING ACK" + seqNum);
         Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, seqNum, this.currSeqNum, "", 0);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
         this.enSocket.send(ackDatagramPacket);
@@ -262,6 +287,7 @@ public class TCPSocketImpl extends TCPSocket {
                 writeToFile(receivedPacket);
                 nextToWriteOnFile++;
                 addAllValidPacketsToFile();
+                System.out.println("WROTE ALL TILL" + nextToWriteOnFile);
                 sendAck(nextToWriteOnFile);
             }
             else if(buffer.size() == 0 || receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber()) {
