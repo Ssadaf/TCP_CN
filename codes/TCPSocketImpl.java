@@ -102,7 +102,7 @@ public class TCPSocketImpl extends TCPSocket {
             else{//ACK
                 ackedSeqNum = ackPacket.getAckNumber();
                 if(this.currState == State.SLOW_START) {
-                    this.cwnd = this.cwnd + 1;
+                    this.cwnd = this.cwnd + (ackPacket.getAckNumber() - ackedSeqNum);
                     this.numDupAck = 0;
                     if(this.cwnd >= this.SSthreshold)
                         this.currState = State.CONGESTION_AVOIDANCE;
@@ -232,33 +232,7 @@ public class TCPSocketImpl extends TCPSocket {
                 sendAck(nextToWriteOnFile);
             }
         }
-//        byte[] msg = new byte[Config.maxMsgSize];
-//        DatagramPacket newDatagramPacket = new DatagramPacket(msg, msg.length);
-//        while((this.currState != State.CLOSED) &(this.currState != State.CLOSE_WAIT)) {
-//            this.enSocket.receive(newDatagramPacket);
-//            Packet newPacket = new Packet(new String(msg));
-//            int rcvSeqNum = newPacket.getSeqNumber();
-//            if (newPacket.getFinFlag().equals("1")) {
-//                if (this.currState == State.FIN_WAIT_2) {
-//                    this.currState = State.TIMED_WAIT;
-//
-//                    this.currSeqNum++;
-//                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
-//                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(destinationPort, destinationIP);
-//                    for (int i = 0; i < 7; i++)
-//                        this.enSocket.send(synDatagramPacket);
-//                    this.currState = State.CLOSED;
-//
-//                } else {
-//                    this.currState = State.CLOSE_WAIT;
-//
-//                    this.currSeqNum++;
-//                    Packet synPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
-//                    DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
-//                    this.enSocket.send(synDatagramPacket);
-//                }
-//            }
-//        }
+
         this.writer.close();
     }
 
