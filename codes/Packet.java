@@ -2,7 +2,7 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 
-class Packet implements java.io.Serializable
+class Packet implements java.io.Serializable, Comparable< Packet >
 {
     private String ackFlag;
     private String synFlag;
@@ -16,7 +16,8 @@ class Packet implements java.io.Serializable
     private int offset;
     private int length;
 
-    public Packet(String ackFlag, String synFlag, String finFlag,int sourcePort, int destinationPort, int ackNumber, int seqNumber, String data, int offset) {
+    public Packet(String ackFlag, String synFlag, String finFlag,int sourcePort, int destinationPort
+            , int ackNumber, int seqNumber, String data, int offset) {
         this.ackFlag = ackFlag;
         this.synFlag = synFlag;
         this.finFlag = finFlag;
@@ -127,5 +128,10 @@ class Packet implements java.io.Serializable
         dPacket.setPort(port);
         dPacket.setAddress(InetAddress.getByName(IP));
         return dPacket;
+    }
+
+    @Override
+    public int compareTo(Packet p) {
+        return Integer.compare(this.getSeqNumber(), p.getSeqNumber());
     }
 }

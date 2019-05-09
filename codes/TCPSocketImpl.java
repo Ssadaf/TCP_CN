@@ -4,6 +4,7 @@ import java.net.DatagramPacket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.io.*;
+import java.util.Collections;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -239,8 +240,8 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void addAllValidPacketsToFile() throws Exception{
-        if(buffer.size()>0)
-            System.out.println("ALL "+ buffer.get(0).getSeqNumber() + "####" + nextToWriteOnFile );
+        Collections.sort(buffer);
+
         while(buffer.size()>0) {
             if((buffer.get(0).getSeqNumber() == nextToWriteOnFile)) {
                 writeToFile(buffer.get(0));
