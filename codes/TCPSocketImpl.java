@@ -266,6 +266,9 @@ public class TCPSocketImpl extends TCPSocket {
                 buffer.add(receivedPacket);
                 sendAck(nextToWriteOnFile);
             }
+            else{
+                sendAck(nextToWriteOnFile);
+            }
         }
 
         this.writer.close();
