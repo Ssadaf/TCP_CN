@@ -34,6 +34,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.enSocket = new EnhancedDatagramSocket(port);
         this.currState = State.SLOW_START;
         this.currSeqNum = 0;
+        this.cwnd = 1;
     }
 
     public void setDestinationPort(int destinationPort){
@@ -66,8 +67,10 @@ public class TCPSocketImpl extends TCPSocket {
         this.numDupAck = 0;
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
-        while (reader.read(chunk) != -1) {
-            while(currSeqNum <= this.ackedSeqNum +this.cwnd + this.numDupAck) {
+        while (true) {
+            while(currSeqNum <= this.ackedSeqNum + this.cwnd + this.numDupAck) {
+                if(reader.read(chunk) == -1)
+                    return;
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
@@ -77,7 +80,11 @@ public class TCPSocketImpl extends TCPSocket {
 
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
-            this.enSocket.receive(ackDatagram);
+            try {
+                this.enSocket.receive(ackDatagram);
+            } catch(Exception ex) {
+
+            }
             Packet ackPacket = new Packet(new String(msg));
 
             if(ackPacket.getAckNumber() == (this.ackedSeqNum ) ){//DUPLICATE ACK
@@ -89,7 +96,7 @@ public class TCPSocketImpl extends TCPSocket {
 
                         this.SSthreshold = this.cwnd / 2;
                         this.cwnd = this.SSthreshold + 3;
-                        retransmitPacket(this.ackedSeqNum );
+                        retransmitPacket(this.ackedSeqNum);
                         currState = State.FAST_RECOVERY;
                     }
                 }
@@ -108,7 +115,7 @@ public class TCPSocketImpl extends TCPSocket {
                 if(this.currState == State.SLOW_START) {
                     this.cwnd = this.cwnd + 1;
                     this.numDupAck = 0;
-                    if(this.cwnd > this.SSthreshold)
+                    if(this.cwnd >= this.SSthreshold)
                         this.currState = State.CONGESTION_AVOIDANCE;
                 }
                 else if(this.currState == State.CONGESTION_AVOIDANCE) {
@@ -232,7 +239,6 @@ public class TCPSocketImpl extends TCPSocket {
                 nextToWriteOnFile++;
                 addAllValidPacketsToFile();
                 sendAck(nextToWriteOnFile);
-
             }
             else if(buffer.size() == 0 || receivedPacket.getSeqNumber() > buffer.get(buffer.size() - 1).getSeqNumber()) {
                 buffer.add(receivedPacket);
