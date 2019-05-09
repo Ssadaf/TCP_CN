@@ -1,9 +1,6 @@
 import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
-import java.util.Random;
 import java.io.*;
 
 enum State{
@@ -72,9 +69,6 @@ public class TCPSocketImpl extends TCPSocket {
             while(currSeqNum <= this.ackedSeqNum + this.cwnd + this.numDupAck) {
                 if(reader.read(chunk) == -1)
                     return;
-                if(new String(chunk).equals("")){
-                    System.out.println("WHAT EMPTY");
-                }
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
@@ -101,17 +95,11 @@ public class TCPSocketImpl extends TCPSocket {
                     }
                 }
                 else if(currState == State.FAST_RECOVERY){
-
-//                    retransmitPacket(this.ackedSeqNum) ;
                     System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
                     cwnd ++;
                 }
             }
             else{//ACK
-                if(ackPacket.getAckNumber() == 0) {
-                    this.cwnd ++;
-                    continue;
-                }
                 ackedSeqNum = ackPacket.getAckNumber();
                 if(this.currState == State.SLOW_START) {
                     this.cwnd = this.cwnd + 1;
@@ -204,8 +192,6 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void sendAck(int seqNum) throws Exception {
-        if(seqNum == 0)
-            System.out.println("WHAT * 2");
         Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, seqNum, this.currSeqNum, "", 0);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
         this.enSocket.send(ackDatagramPacket);
@@ -235,8 +221,6 @@ public class TCPSocketImpl extends TCPSocket {
                 continue;
             }
             System.out.println(receivedPacket.getSeqNumber());
-            if(nextToWriteOnFile == 0)
-                System.out.println("WHAT NEXT 0");
             if(receivedPacket.getSeqNumber() == nextToWriteOnFile) {
                 writeToFile(receivedPacket);
                 nextToWriteOnFile++;
