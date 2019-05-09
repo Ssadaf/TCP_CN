@@ -73,6 +73,9 @@ public class TCPSocketImpl extends TCPSocket {
                 this.enSocket.send(sendDatagramPacket);
             }
         }
+        timer.cancel();
+        timer = new Timer();
+        createNewTimerTask();
     }
 
     @Override
