@@ -35,7 +35,7 @@ public class TCPSocketImpl extends TCPSocket {
                 try {
                     retransmitPacket(ackedSeqNum);
                     cwnd = 1;
-                    SSthreshold = cwnd / 2;
+                    SSthreshold = Math.max(1, cwnd / 2);
                     numDupAck = 0;
 
                     currState = State.SLOW_START;
@@ -120,7 +120,7 @@ public class TCPSocketImpl extends TCPSocket {
                     if (this.numDupAck == 3) {
                         System.out.println("FAST RECOVERY");
 
-                        this.SSthreshold = this.cwnd / 2;
+                        this.SSthreshold = Math.max(1, this.cwnd / 2);
                         this.cwnd = this.SSthreshold + 3;
                         retransmitPacket(this.ackedSeqNum);
                         currState = State.FAST_RECOVERY;
