@@ -68,6 +68,8 @@ class Packet implements java.io.Serializable
                 else
                     this.data = "";
             }
+            else
+                this.data = this.data + tokens[i];
         }
     }
 
