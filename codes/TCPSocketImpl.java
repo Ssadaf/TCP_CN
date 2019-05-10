@@ -32,31 +32,60 @@ public class TCPSocketImpl extends TCPSocket {
     private int congestionAvoidanceTemp;
     private Timer timer = new Timer();
     private TimerTask task;
+    private boolean endOfFile = false;
 
-    public void createNewTimerTask() {
-        task =  new TimerTask() {
-            public void run() {
-                try {
-                    System.out.println("TIMEDOUT");
-                    retransmitPacket(ackedSeqNum);
-                    cwnd = 1;
-                    SSthreshold = Math.max(1, cwnd / 2);
-                    numDupAck = 0;
+//    public void createNewTimerTask() {
+//        task =  new TimerTask() {
+//            public void run() {
+//                try {
+//                    System.out.println("TIMEDOUT");
+//                    retransmitPacket(ackedSeqNum);
+//                    cwnd = 1;
+//                    SSthreshold = Math.max(1, cwnd / 2);
+//                    numDupAck = 0;
+//
+//                    currState = State.SLOW_START;
+//
+//                    task.cancel();
+//                    timer = new Timer();
+//                    task =  new TimerTask();
+//                    timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+//
+////                    createNewTimerTask();
+//                    System.out.println("SCHEDULE TIMEOUT AFTER TIMEOUT!");
+//                } catch (Exception e) {
+//                    System.out.println("Retransmission timeout failed.");
+//                    e.printStackTrace();
+//                }
+//            }
+//        };
+//    }
 
-                    currState = State.SLOW_START;
+    class MyTimerTask extends TimerTask{
+        public void run(){
+            try {
+                task.cancel();
+                System.out.println("TIMEDOUT");
+                retransmitPacket(ackedSeqNum);
+                cwnd = 1;
+                SSthreshold = Math.max(1, cwnd / 2);
+                numDupAck = 0;
 
-                    timer.cancel();
-                    timer = new Timer();
-                    createNewTimerTask();
-                    System.out.println("SCHEDULE TIMEOUT AFTER TIMEOUT!");
-                    timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
-                } catch (Exception e) {
-                    System.out.println("Retransmission timeout failed.");
-                    e.printStackTrace();
-                }
+                currState = State.SLOW_START;
+
+
+                timer = new Timer();
+                task =  new MyTimerTask();
+                timer.schedule(task, Config.receiveTimeout);
+
+                System.out.println("SCHEDULE TIMEOUT AFTER TIMEOUT!");
+            } catch (Exception e) {
+                System.out.println("Retransmission timeout failed.");
+                e.printStackTrace();
             }
-        };
+        }
     }
+
 
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
@@ -85,11 +114,7 @@ public class TCPSocketImpl extends TCPSocket {
             }
         }
         System.out.println("RETRANSMIT " + currState + "  " + retransmitSeqNum + " ACKED  " + ackedSeqNum);
-        timer.cancel();
-        timer = new Timer();
-        createNewTimerTask();
-        System.out.println("SCHEDULE TIMEOUT AFTER RETRANSMIT");
-        timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+
     }
 
     public void cleanSentBuffer(){
@@ -114,17 +139,25 @@ public class TCPSocketImpl extends TCPSocket {
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
         int windowLimit;
-        createNewTimerTask();
         System.out.println("SCHEDULE TIMEOUT FOR THE FIRST TIME");
-        timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+
+        timer = new Timer();
+        task =  new MyTimerTask();
+        timer.schedule(task, Config.receiveTimeout);
         while (true) {
-            System.out.println("DUP " + numDupAck);
+//            System.out.println("DUP " + numDupAck);
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
-            System.out.println("limit " + windowLimit + " cwnd " + cwnd + " acked " + ackedSeqNum);
-            System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " dup: " + numDupAck);
-            while(currSeqNum + 1 <= windowLimit) {
-                if(reader.read(chunk) == -1)
-                    return;
+//            System.out.println("limit " + windowLimit + " cwnd " + cwnd + " acked " + ackedSeqNum);
+            System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum);
+            System.out.println("BEFORE WHILE");
+
+            while((!endOfFile) & currSeqNum + 1 <= windowLimit) {
+                System.out.println("IN WHILE" + currSeqNum);
+                if(reader.read(chunk) == -1) {
+                    System.out.println("END OF FILE");
+                    endOfFile = true;
+                    break;
+                }
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
@@ -132,6 +165,8 @@ public class TCPSocketImpl extends TCPSocket {
                 this.enSocket.send(sendDatagramPacket);
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
+            System.out.println("AFTER WHILE");
+
 
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
@@ -141,7 +176,7 @@ public class TCPSocketImpl extends TCPSocket {
             System.out.println("RECEIVED " + ackPacket.getAckNumber());
 
             if(ackPacket.getAckNumber() == (this.ackedSeqNum ) ){//DUPLICATE ACK
-                System.out.println("GOT DUP ACK");
+                System.out.println("GOT DUP ACK" );
                 if(this.currState == State.SLOW_START | this.currState == State.CONGESTION_AVOIDANCE) {
                     this.numDupAck++;
                     System.out.println("Dup: " + numDupAck);
@@ -155,31 +190,39 @@ public class TCPSocketImpl extends TCPSocket {
                         currState = State.FAST_RECOVERY;
                     }
                 }
-                if(currState == State.FAST_RECOVERY){
+                else if(currState == State.FAST_RECOVERY){
                     System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
                     cwnd ++;
                 }
 
             }
             else{//ACK
+                task.cancel();
+
+                if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) )
+                    return;
+
                 int ackCount = ackPacket.getAckNumber() - ackedSeqNum;
-                System.out.println("new ack: " + ackPacket.getAckNumber() + " acked " + ackedSeqNum);
+                System.out.println("new ack: " + ackPacket.getAckNumber());
                 ackedSeqNum = ackPacket.getAckNumber();
-                timer.cancel();
-                timer = new Timer();
-                createNewTimerTask();
+
                 System.out.println("SCHEDULE TIMEOUT AFTER NEW ACK");
-                timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+                timer = new Timer();
+                task =  new MyTimerTask();
+                timer.schedule(task, Config.receiveTimeout);
 
                 cleanSentBuffer();
 
                 if(this.currState == State.SLOW_START) {
+                    System.out.println(1);
                     this.cwnd = this.cwnd + ackCount;
                     this.numDupAck = 0;
                     if(this.cwnd >= this.SSthreshold)
                         this.currState = State.CONGESTION_AVOIDANCE;
                 }
                 else if(this.currState == State.CONGESTION_AVOIDANCE) {
+                    System.out.println(2);
+
                     this.congestionAvoidanceTemp ++;
                     if(congestionAvoidanceTemp == cwnd){
                         congestionAvoidanceTemp = 0;
@@ -188,6 +231,8 @@ public class TCPSocketImpl extends TCPSocket {
                     numDupAck = 0;
                 }
                 else if(currState == State.FAST_RECOVERY){
+                    System.out.println(3);
+
                     System.out.println("OUT OF FAST RECOVERY");
                     cwnd = SSthreshold;
                     numDupAck = 0;
@@ -195,6 +240,8 @@ public class TCPSocketImpl extends TCPSocket {
                 }
             }
             this.onWindowChange();
+            System.out.println("END");
+
         }
 
     }
