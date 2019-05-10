@@ -247,7 +247,7 @@ public class TCPSocketImpl extends TCPSocket {
     private void writeToFile(Packet newPacket) throws Exception{
         String data = newPacket.getData();
         this.writer.write(data);
-        System.out.println("Writing to file: " + newPacket.getSeqNumber() +":   "+ data);
+        System.out.println("Writing to file: " + newPacket.getSeqNumber() );
     }
 
     private void addAllValidPacketsToFile() throws Exception{
@@ -311,8 +311,8 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("WROTE ALL TILL" + nextToWriteOnFile);
                 sendAck(nextToWriteOnFile);
             }
-            else if(buffer.size() == 0 || (receivedPacket.getSeqNumber() > nextToWriteOnFile && !existsInBuffer(receivedPacket))) {
-                System.out.println("ADDED " + receivedPacket.getSeqNumber() + " to buffer");
+            else if( (receivedPacket.getSeqNumber() > nextToWriteOnFile && !existsInBuffer(receivedPacket))) {
+//                System.out.println("ADDED " + receivedPacket.getSeqNumber() + " to buffer");
                 buffer.add(receivedPacket);
                 //Collections.sort(buffer);
                 sendAck(nextToWriteOnFile);
