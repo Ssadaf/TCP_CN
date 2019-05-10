@@ -7,6 +7,7 @@ import java.io.*;
 import java.util.Collections;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
 
 enum State{
     SLOW_START, CONGESTION_AVOIDANCE, FAST_RECOVERY,
@@ -127,6 +128,80 @@ public class TCPSocketImpl extends TCPSocket {
         }
     }
 
+    private void handleDupAck(Packet ackPacket) throws Exception {
+        System.out.println("GOT DUP ACK" );
+        if(this.currState == State.SLOW_START | this.currState == State.CONGESTION_AVOIDANCE) {
+            this.numDupAck++;
+            System.out.println("Dup: " + numDupAck);
+
+            if (this.numDupAck == 3) {
+                System.out.println("FAST RECOVERY");
+
+                this.SSthreshold = Math.max(1, this.cwnd / 2);
+                this.cwnd = this.SSthreshold + 3;
+                retransmitPacket(this.ackedSeqNum);
+                currState = State.FAST_RECOVERY;
+            }
+        }
+        else if(currState == State.FAST_RECOVERY){
+            System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
+            cwnd ++;
+        }
+    }
+
+    private void handleNewAck(Packet ackPacket) {
+        task.cancel();
+
+        if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) )
+            return;
+
+        int ackCount = ackPacket.getAckNumber() - ackedSeqNum;
+        System.out.println("new ack: " + ackPacket.getAckNumber());
+        ackedSeqNum = ackPacket.getAckNumber();
+
+        System.out.println("SCHEDULE TIMEOUT AFTER NEW ACK");
+        timer = new Timer();
+        task =  new MyTimerTask();
+        timer.schedule(task, Config.receiveTimeout);
+
+        cleanSentBuffer();
+
+        if(this.currState == State.SLOW_START) {
+            System.out.println(1);
+            this.cwnd = this.cwnd + ackCount;
+            this.numDupAck = 0;
+            if(this.cwnd >= this.SSthreshold)
+                this.currState = State.CONGESTION_AVOIDANCE;
+        }
+        else if(this.currState == State.CONGESTION_AVOIDANCE) {
+            System.out.println(2);
+
+            this.congestionAvoidanceTemp ++;
+            if(congestionAvoidanceTemp == cwnd){
+                congestionAvoidanceTemp = 0;
+                cwnd ++;
+            }
+            numDupAck = 0;
+        }
+        else if(currState == State.FAST_RECOVERY){
+            System.out.println(3);
+
+            System.out.println("OUT OF FAST RECOVERY");
+            cwnd = SSthreshold;
+            numDupAck = 0;
+            currState = State.CONGESTION_AVOIDANCE;
+        }
+    }
+
+    private void handleAck(Packet ackPacket) throws Exception {
+        if(ackPacket.getAckNumber() == (this.ackedSeqNum ) )//DUPLICATE ACK
+            handleDupAck(ackPacket);
+
+        else{//ACK
+            handleNewAck(ackPacket);
+        }
+    }
+
     @Override
     public void send(String pathToFile) throws Exception{
         this.enSocket.setSoTimeout(0);
@@ -175,75 +250,11 @@ public class TCPSocketImpl extends TCPSocket {
 
             System.out.println("RECEIVED " + ackPacket.getAckNumber());
 
-            if(ackPacket.getAckNumber() == (this.ackedSeqNum ) ){//DUPLICATE ACK
-                System.out.println("GOT DUP ACK" );
-                if(this.currState == State.SLOW_START | this.currState == State.CONGESTION_AVOIDANCE) {
-                    this.numDupAck++;
-                    System.out.println("Dup: " + numDupAck);
+            handleAck(ackPacket);
 
-                    if (this.numDupAck == 3) {
-                        System.out.println("FAST RECOVERY");
-
-                        this.SSthreshold = Math.max(1, this.cwnd / 2);
-                        this.cwnd = this.SSthreshold + 3;
-                        retransmitPacket(this.ackedSeqNum);
-                        currState = State.FAST_RECOVERY;
-                    }
-                }
-                else if(currState == State.FAST_RECOVERY){
-                    System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
-                    cwnd ++;
-                }
-
-            }
-            else{//ACK
-                task.cancel();
-
-                if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) )
-                    return;
-
-                int ackCount = ackPacket.getAckNumber() - ackedSeqNum;
-                System.out.println("new ack: " + ackPacket.getAckNumber());
-                ackedSeqNum = ackPacket.getAckNumber();
-
-                System.out.println("SCHEDULE TIMEOUT AFTER NEW ACK");
-                timer = new Timer();
-                task =  new MyTimerTask();
-                timer.schedule(task, Config.receiveTimeout);
-
-                cleanSentBuffer();
-
-                if(this.currState == State.SLOW_START) {
-                    System.out.println(1);
-                    this.cwnd = this.cwnd + ackCount;
-                    this.numDupAck = 0;
-                    if(this.cwnd >= this.SSthreshold)
-                        this.currState = State.CONGESTION_AVOIDANCE;
-                }
-                else if(this.currState == State.CONGESTION_AVOIDANCE) {
-                    System.out.println(2);
-
-                    this.congestionAvoidanceTemp ++;
-                    if(congestionAvoidanceTemp == cwnd){
-                        congestionAvoidanceTemp = 0;
-                        cwnd ++;
-                    }
-                    numDupAck = 0;
-                }
-                else if(currState == State.FAST_RECOVERY){
-                    System.out.println(3);
-
-                    System.out.println("OUT OF FAST RECOVERY");
-                    cwnd = SSthreshold;
-                    numDupAck = 0;
-                    currState = State.CONGESTION_AVOIDANCE;
-                }
-            }
             this.onWindowChange();
             System.out.println("END");
-
         }
-
     }
 
     public int sendSyn(DatagramPacket synDatagramPacket ) throws Exception {
@@ -347,7 +358,9 @@ public class TCPSocketImpl extends TCPSocket {
                 this.currSeqNum++;
                 Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
                 DatagramPacket finAckDatagramPacket = finAckPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
-                this.enSocket.send(finAckDatagramPacket);
+                for(int i = 0; i < 7; i++)
+                    this.enSocket.send(finAckDatagramPacket);
+                TimeUnit.SECONDS.sleep(3);
                 continue;
             }
             System.out.println(receivedPacket.getSeqNumber());
@@ -382,26 +395,33 @@ public class TCPSocketImpl extends TCPSocket {
             while (true) {
                 this.enSocket.send(closeDatagramPacket);
                 this.currState = (currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY)? State.FIN_WAIT_1 : State.LAST_ACK;
-                this.enSocket.setSoTimeout(1000);
 
                 while (true) {
-                    try {
                         DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
                         this.enSocket.receive(ackDatagramPacket);
                         Packet ackPacket = new Packet(new String(msg));
-                        if (!ackPacket.getAckFlag().equals("1"))
-                            throw new Exception("This message is not ACK");
-                        if (ackPacket.getAckNumber() != (this.currSeqNum + 1))
-                            //TODO: AFTER RECEIVE
-                            throw new Exception("This message is not my ACK -- WILL CHANGE AFTER IMPLEMENTATION OF RECEIVE");
-                        this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
-//                        if(this.currState == State.FIN_WAIT_2)
-                            //TODO RECEIVE
-                    } catch (SocketTimeoutException e) {
-                        // timeout exception.
-                        System.out.println("Timeout reached!!! " + e);
-                        break;
-                    }
+                        if(ackPacket.getAckFlag().equals("1")){
+                            if(currState == State.FIN_WAIT_2) {
+                                handleAck(ackPacket);
+                                continue;
+                            }
+                            if(currState == State.FIN_WAIT_1){
+                                if(ackPacket.getAckNumber() == (this.currSeqNum + 1))
+                                    currState = State.FIN_WAIT_2;
+                                else
+                                    handleAck(ackPacket);
+                            }
+                            if(currState == State.LAST_ACK)
+                                return;
+                        }
+                        if (ackPacket.getFinFlag().equals("1") && currState == State.FIN_WAIT_2) {
+                            this.currState = State.TIMED_WAIT;
+                            for(int i = 0; i < 7; i++)
+                                sendAck(ackPacket.getSeqNumber());
+                            this.currState = State.CLOSED;
+                            return;
+                        }
+//                        this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
                 }
             }
         }
