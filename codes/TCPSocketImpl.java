@@ -34,6 +34,8 @@ public class TCPSocketImpl extends TCPSocket {
     private Timer timer = new Timer();
     private TimerTask task;
     private boolean endOfFile = false;
+    private boolean shouldClose = false;
+
 
 //    public void createNewTimerTask() {
 //        task =  new TimerTask() {
@@ -149,8 +151,10 @@ public class TCPSocketImpl extends TCPSocket {
     private void handleNewAck(Packet ackPacket) {
         task.cancel();
 
-        if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) )
+        if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) ){
+            shouldClose = true;
             return;
+        }
 
         int ackCount = ackPacket.getAckNumber() - ackedSeqNum;
         System.out.println("new ack: " + ackPacket.getAckNumber());
@@ -238,6 +242,10 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
             System.out.println("AFTER WHILE");
+            if(shouldClose){
+                System.out.println("SHOULD CLOSE");
+                return;
+            }
 
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
