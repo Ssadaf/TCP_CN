@@ -235,7 +235,7 @@ public class TCPSocketImpl extends TCPSocket {
                     break;
                 }
                 this.currSeqNum ++;
-                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk), 0);
+                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk, "UTF-8"), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                 sentPackets.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
@@ -243,6 +243,8 @@ public class TCPSocketImpl extends TCPSocket {
             }
             System.out.println("AFTER WHILE");
             if(shouldClose){
+                task.cancel();
+                timer.cancel();
                 System.out.println("SHOULD CLOSE");
                 return;
             }
@@ -308,7 +310,7 @@ public class TCPSocketImpl extends TCPSocket {
 
     private void writeToFile(Packet newPacket) throws Exception{
         String data = newPacket.getData();
-        this.writer.write(data);
+        this.writer.write(data );
         System.out.println("Writing to file: " + newPacket.getSeqNumber() );
     }
 
@@ -358,6 +360,7 @@ public class TCPSocketImpl extends TCPSocket {
             if(checkIfAckOrSyn(receivedPacket))
                 continue;
             if (receivedPacket.getFinFlag().equals("1")) {
+                System.out.println("SENDER WANTS TO CLOSE");
                 this.currState = State.CLOSE_WAIT;
                 this.currSeqNum++;
                 Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
@@ -392,45 +395,60 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public void close() throws Exception {
         System.out.println("CLOSING...");
-        if(this.currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY || this.currState == State.CLOSE_WAIT) {
-            byte[] msg = new byte[Config.maxMsgSize];
-            this.currSeqNum++;
-            Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
-            DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-            while (true) {
-                this.enSocket.send(closeDatagramPacket);
-                this.currState = (currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY)? State.FIN_WAIT_1 : State.LAST_ACK;
 
-                while (true) {
-                        DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
-                        this.enSocket.receive(ackDatagramPacket);
-                        Packet ackPacket = new Packet(new String(msg));
-                        if(ackPacket.getAckFlag().equals("1")){
-                            if(currState == State.FIN_WAIT_2) {
-                                handleAck(ackPacket);
-                                continue;
-                            }
-                            if(currState == State.FIN_WAIT_1){
-                                if(ackPacket.getAckNumber() == (this.currSeqNum + 1))
-                                    currState = State.FIN_WAIT_2;
-                                else
-                                    handleAck(ackPacket);
-                            }
-                            if(currState == State.LAST_ACK)
-                                return;
-                        }
-                        if (ackPacket.getFinFlag().equals("1") && currState == State.FIN_WAIT_2) {
-                            this.currState = State.TIMED_WAIT;
-                            for(int i = 0; i < 7; i++)
-                                sendAck(ackPacket.getSeqNumber());
-                            this.currState = State.CLOSED;
-                            return;
-                        }
-//                        this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
+        if(currState == State.CLOSE_WAIT) {
+            this.enSocket.close();
+            return;
+        }
+
+        byte[] msg = new byte[Config.maxMsgSize];
+        currSeqNum = 1;
+        Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
+        DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+        for(int i=0; i<7; i++){
+            this.enSocket.send(closeDatagramPacket);
+        }
+
+        while (true) {
+            this.enSocket.send(closeDatagramPacket);
+            this.currState = (currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY)? State.FIN_WAIT_1 : State.LAST_ACK;
+
+            while (true) {
+                System.out.println("2-HEREEE " + currState);
+
+
+                DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
+                this.enSocket.receive(ackDatagramPacket);
+                Packet ackPacket = new Packet(new String(msg));
+                if(ackPacket.getAckFlag().equals("1")){
+                    if(currState == State.FIN_WAIT_2) {
+                        return;
+//                        handleAck(ackPacket);
+//                        continue;
+                    }
+                    if(currState == State.FIN_WAIT_1){
+                        if(ackPacket.getAckNumber() == (this.currSeqNum + 1))
+                            currState = State.FIN_WAIT_2;
+                        else
+                            handleAck(ackPacket);
+                    }
+                    if(currState == State.LAST_ACK)
+                        return;
                 }
+                if (ackPacket.getFinFlag().equals("1") && currState == State.FIN_WAIT_2) {
+                    this.currState = State.TIMED_WAIT;
+    //                        for(int i = 0; i < 7; i++)
+    //                            sendAck(ackPacket.getSeqNumber());
+                    this.currState = State.CLOSED;
+                    this.enSocket.close();
+                    System.out.println("1-HEREEE");
+                    return;
+                }
+//                        this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
             }
         }
     }
+
 
     @Override
     public long getSSThreshold() {

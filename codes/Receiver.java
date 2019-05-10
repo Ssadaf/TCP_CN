@@ -8,5 +8,6 @@ public class Receiver {
 
         tcpSocket.receive("../test.txt");
         tcpSocket.close();
+        System.out.println("DONE");
     }
 }

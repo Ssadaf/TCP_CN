@@ -8,5 +8,6 @@ public class Sender {
         tcpSocket.send("../sending.txt");
         tcpSocket.close();
         tcpSocket.saveCongestionWindowPlot();
+        System.out.println("DONE");
     }
 }
