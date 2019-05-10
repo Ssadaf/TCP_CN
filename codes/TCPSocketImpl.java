@@ -312,7 +312,9 @@ public class TCPSocketImpl extends TCPSocket {
                 sendAck(nextToWriteOnFile);
             }
             else if(buffer.size() == 0 || (receivedPacket.getSeqNumber() > nextToWriteOnFile && !existsInBuffer(receivedPacket))) {
+                System.out.println("ADDED " + receivedPacket.getSeqNumber() + " to buffer");
                 buffer.add(receivedPacket);
+                //Collections.sort(buffer);
                 sendAck(nextToWriteOnFile);
             }
             else
