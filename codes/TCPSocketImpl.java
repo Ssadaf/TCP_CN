@@ -430,7 +430,8 @@ public class TCPSocketImpl extends TCPSocket {
                         if(ackPacket.getAckNumber() == (this.currSeqNum + 1))
                             currState = State.FIN_WAIT_2;
                         else
-                            handleAck(ackPacket);
+//                            handleAck(ackPacket);
+                        continue;
                     }
                     if(currState == State.LAST_ACK)
                         return;
@@ -439,6 +440,7 @@ public class TCPSocketImpl extends TCPSocket {
                     this.currState = State.TIMED_WAIT;
     //                        for(int i = 0; i < 7; i++)
     //                            sendAck(ackPacket.getSeqNumber());
+                    TimeUnit.SECONDS.sleep(3);
                     this.currState = State.CLOSED;
                     this.enSocket.close();
                     System.out.println("1-HEREEE");

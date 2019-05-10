@@ -7,6 +7,6 @@ class Config
     public static final int receiverPortNum = 7777;
     public static final int maxMsgSize = 65535;
     public static final int maxBufferSize = 2000000;
-    public static final int chunkSize = 1024;
+    public static final int chunkSize = 128;
     public static final long receiveTimeout = 1000;
 }
