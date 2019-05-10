@@ -74,11 +74,6 @@ public class TCPSocketImpl extends TCPSocket {
 
                 currState = State.SLOW_START;
 
-
-                timer = new Timer();
-                task =  new MyTimerTask();
-                timer.schedule(task, Config.receiveTimeout);
-
                 System.out.println("SCHEDULE TIMEOUT AFTER TIMEOUT!");
             } catch (Exception e) {
                 System.out.println("Retransmission timeout failed.");
@@ -115,7 +110,9 @@ public class TCPSocketImpl extends TCPSocket {
             }
         }
         System.out.println("RETRANSMIT " + currState + "  " + retransmitSeqNum + " ACKED  " + ackedSeqNum);
-
+        timer = new Timer();
+        task =  new MyTimerTask();
+        timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
     }
 
     public void cleanSentBuffer(){
@@ -241,7 +238,6 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
             System.out.println("AFTER WHILE");
-
 
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
@@ -387,6 +383,7 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void close() throws Exception {
+        System.out.println("CLOSING...");
         if(this.currState == State.SLOW_START || currState == State.CONGESTION_AVOIDANCE  || currState == State.FAST_RECOVERY || this.currState == State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
             this.currSeqNum++;

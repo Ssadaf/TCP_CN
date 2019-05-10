@@ -7,9 +7,6 @@ public class Receiver {
         TCPSocket tcpSocket = tcpServerSocket.accept();
 
         tcpSocket.receive("../test.txt");
-
-//        tcpSocket.receive("receiving.mp3");
         tcpSocket.close();
-//        tcpServerSocket.close();
     }
 }
