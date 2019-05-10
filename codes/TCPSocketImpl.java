@@ -92,15 +92,15 @@ public class TCPSocketImpl extends TCPSocket {
         timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
     }
 
-//    public void cleanSentBuffer(){
-//        while(sentPackets.size()>0) {
-//            if ((sentPackets.get(0).getSeqNumber() < ackedSeqNum)) {
-//                sentPackets.remove(0);
-//            }
-//            else
-//                return;
-//        }
-//    }
+    public void cleanSentBuffer(){
+        while(sentPackets.size()>0) {
+            if ((sentPackets.get(0).getSeqNumber() < ackedSeqNum)) {
+                sentPackets.remove(0);
+            }
+            else
+                return;
+        }
+    }
 
     @Override
     public void send(String pathToFile) throws Exception{
@@ -171,7 +171,7 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("SCHEDULE TIMEOUT AFTER NEW ACK");
                 timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
 
-//                cleanSentBuffer();
+                cleanSentBuffer();
 
                 if(this.currState == State.SLOW_START) {
                     this.cwnd = this.cwnd + ackCount;
