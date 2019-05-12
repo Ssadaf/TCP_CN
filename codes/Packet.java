@@ -27,7 +27,6 @@ class Packet implements java.io.Serializable, Comparable< Packet >
         this.seqNumber = seqNumber;
         this.data = data;
         this.offset = offset;
-
     }
 
     public Packet(String data){
@@ -70,8 +69,7 @@ class Packet implements java.io.Serializable, Comparable< Packet >
                 else
                     this.data = parts[1];
             }
-            else {
-//                if( i != tokens.length-1 )
+            else if(!tokens[i].startsWith("~$~$~END")){
                 this.data = this.data + "\n" + tokens[i];
             }
         }
@@ -80,7 +78,7 @@ class Packet implements java.io.Serializable, Comparable< Packet >
     public String createMessage(){
         String msg = "";
         msg += "ack:" + ackFlag + "\nsyn:" + synFlag +"\nfin:"+ finFlag+ "\nack_num:" + String.valueOf(ackNumber)
-             + "\nsource_port:" + String.valueOf(sourcePort) + "\ndestination_port:" + String.valueOf(destinationPort) + "\nseqNum:" + String.valueOf(seqNumber) + "\ndata:" + data + "\n";
+             + "\nsource_port:" + String.valueOf(sourcePort) + "\ndestination_port:" + String.valueOf(destinationPort) + "\nseqNum:" + String.valueOf(seqNumber) + "\ndata:" + data + "\n~$~$~END";
         return msg;
     }
 

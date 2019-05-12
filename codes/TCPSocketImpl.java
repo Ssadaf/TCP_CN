@@ -252,7 +252,7 @@ public class TCPSocketImpl extends TCPSocket {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
             this.enSocket.receive(ackDatagram);
-            Packet ackPacket = new Packet(new String(msg));
+            Packet ackPacket = new Packet(new String(msg).replaceAll("^\\x00*", ""));
 
             System.out.println("RECEIVED " + ackPacket.getAckNumber());
 
@@ -310,7 +310,7 @@ public class TCPSocketImpl extends TCPSocket {
 
     private void writeToFile(Packet newPacket) throws Exception{
         String data = newPacket.getData();
-        this.writer.write(data );
+        this.writer.write(data);
         System.out.println("Writing to file: " + newPacket.getSeqNumber() );
     }
 
@@ -416,9 +416,9 @@ public class TCPSocketImpl extends TCPSocket {
             while (true) {
                 System.out.println("2-HEREEE " + currState);
 
-
                 DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
                 this.enSocket.receive(ackDatagramPacket);
+                System.out.println("RECEIVED PACKET IN CLOSE");
                 Packet ackPacket = new Packet(new String(msg));
                 if(ackPacket.getAckFlag().equals("1")){
                     if(currState == State.FIN_WAIT_2) {
