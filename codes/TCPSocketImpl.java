@@ -44,6 +44,7 @@ public class TCPSocketImpl extends TCPSocket {
                 retransmitPacket(ackedSeqNum);
                 cwnd = 1;
                 SSthreshold = Math.max(1, cwnd / 2);
+                onWindowChange();
                 numDupAck = 0;
 
                 currState = State.SLOW_START;
@@ -64,6 +65,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.currState = State.SLOW_START;
         this.currSeqNum = 0;
         this.cwnd = 1;
+        this.onWindowChange();
     }
 
     public void setDestinationPort(int destinationPort){
@@ -113,6 +115,7 @@ public class TCPSocketImpl extends TCPSocket {
 
                 this.SSthreshold = Math.max(1, this.cwnd / 2);
                 this.cwnd = this.SSthreshold + 3;
+                this.onWindowChange();
                 retransmitPacket(this.ackedSeqNum);
                 currState = State.FAST_RECOVERY;
             }
@@ -120,6 +123,7 @@ public class TCPSocketImpl extends TCPSocket {
         else if(currState == State.FAST_RECOVERY){
             System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
             cwnd ++;
+            this.onWindowChange();
         }
     }
 
@@ -146,6 +150,7 @@ public class TCPSocketImpl extends TCPSocket {
         if(this.currState == State.SLOW_START) {
             System.out.println(1);
             this.cwnd = this.cwnd + ackCount;
+            this.onWindowChange();
             this.numDupAck = 0;
             if(this.cwnd >= this.SSthreshold)
                 this.currState = State.CONGESTION_AVOIDANCE;
@@ -157,6 +162,7 @@ public class TCPSocketImpl extends TCPSocket {
             if(congestionAvoidanceTemp == cwnd){
                 congestionAvoidanceTemp = 0;
                 cwnd ++;
+                this.onWindowChange();
             }
             numDupAck = 0;
         }
@@ -165,6 +171,7 @@ public class TCPSocketImpl extends TCPSocket {
 
             System.out.println("OUT OF FAST RECOVERY");
             cwnd = SSthreshold;
+            this.onWindowChange();
             numDupAck = 0;
             currState = State.CONGESTION_AVOIDANCE;
         }
@@ -239,7 +246,6 @@ public class TCPSocketImpl extends TCPSocket {
 
             handleAck(ackPacket);
 
-            this.onWindowChange();
             System.out.println("END");
         }
     }
@@ -366,7 +372,6 @@ public class TCPSocketImpl extends TCPSocket {
             else
                 sendAck(nextToWriteOnFile);
         }
-
         this.writer.close();
     }
 
