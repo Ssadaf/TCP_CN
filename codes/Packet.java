@@ -63,6 +63,10 @@ class Packet implements java.io.Serializable, Comparable< Packet >
                 String[] parts = tokens[i].split(":");
                 this.seqNumber = Integer.parseInt(parts[1]);
             }
+            else if(tokens[i].startsWith("buffer:")){
+                String[] parts = tokens[i].split(":");
+                this.emptyBufferSize = Integer.parseInt(parts[1]);
+            }
             else if(tokens[i].startsWith("data:")){
                 String[] parts = tokens[i].split(":", 2);
                 if(parts.length <= 1)
