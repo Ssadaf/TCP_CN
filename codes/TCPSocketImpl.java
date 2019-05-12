@@ -35,6 +35,7 @@ public class TCPSocketImpl extends TCPSocket {
     private TimerTask task;
     private boolean endOfFile = false;
     private boolean shouldClose = false;
+    private int timerCount = 0;
 
 
 //    public void createNewTimerTask() {
@@ -67,8 +68,9 @@ public class TCPSocketImpl extends TCPSocket {
     class MyTimerTask extends TimerTask{
         public void run(){
             try {
-                task.cancel();
                 timer.cancel();
+                timerCount--;
+                timer.purge();
                 System.out.println("TIMEDOUT");
                 retransmitPacket(ackedSeqNum);
                 cwnd = 1;
@@ -115,7 +117,8 @@ public class TCPSocketImpl extends TCPSocket {
         System.out.println("RETRANSMIT " + currState + "  " + retransmitSeqNum + " ACKED  " + ackedSeqNum);
         timer = new Timer();
         task =  new MyTimerTask();
-        timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
+        timer.schedule(task, Config.receiveTimeout);
+        timerCount++;
     }
 
     public void cleanSentBuffer(){
@@ -150,8 +153,9 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void handleNewAck(Packet ackPacket) {
-        task.cancel();
         timer.cancel();
+        timerCount--;
+        timer.purge();
 
         if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) ){
             shouldClose = true;
@@ -166,6 +170,7 @@ public class TCPSocketImpl extends TCPSocket {
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
+        timerCount++;
 
         cleanSentBuffer();
 
@@ -222,6 +227,7 @@ public class TCPSocketImpl extends TCPSocket {
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
+        timerCount++;
         while (true) {
 //            System.out.println("DUP " + numDupAck);
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
@@ -234,6 +240,7 @@ public class TCPSocketImpl extends TCPSocket {
                 if(reader.read(chunk) == -1) {
                     System.out.println("END OF FILE");
                     endOfFile = true;
+                    reader.close();
                     break;
                 }
                 this.currSeqNum ++;
@@ -245,9 +252,14 @@ public class TCPSocketImpl extends TCPSocket {
             }
             System.out.println("AFTER WHILE");
             if(shouldClose){
-                task.cancel();
                 timer.cancel();
+                timerCount--;
+                timer.purge();
                 System.out.println("SHOULD CLOSE");
+                for(int i = 0; i < timerCount; i++) {
+                    timer.cancel();
+                    timer.purge();
+                }
                 return;
             }
 
