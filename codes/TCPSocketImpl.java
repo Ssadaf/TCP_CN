@@ -35,6 +35,7 @@ public class TCPSocketImpl extends TCPSocket {
     private TimerTask task;
     private boolean endOfFile = false;
     private boolean shouldClose = false;
+    private int timerCounter = 0;
 
 
     class MyTimerTask extends TimerTask{
@@ -87,9 +88,11 @@ public class TCPSocketImpl extends TCPSocket {
         System.out.println("RETRANSMIT " + currState + "  " + retransmitSeqNum + " ACKED  " + ackedSeqNum);
         timer.cancel();
         timer.purge();
+        timerCounter --;
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
+        timerCounter ++;
     }
 
     public void cleanSentBuffer(){
@@ -126,6 +129,7 @@ public class TCPSocketImpl extends TCPSocket {
     private void handleNewAck(Packet ackPacket) {
         timer.cancel();
         timer.purge();
+        timerCounter --;
 
         if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) ){
             shouldClose = true;
@@ -140,6 +144,7 @@ public class TCPSocketImpl extends TCPSocket {
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
+        timerCounter ++;
 
         cleanSentBuffer();
 
@@ -168,6 +173,7 @@ public class TCPSocketImpl extends TCPSocket {
             numDupAck = 0;
             currState = State.CONGESTION_AVOIDANCE;
         }
+
     }
 
     private void handleAck(Packet ackPacket) throws Exception {
@@ -196,6 +202,8 @@ public class TCPSocketImpl extends TCPSocket {
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
+        timerCounter ++;
+
         while (true) {
             byte[] chunk = new byte[Config.chunkSize];
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
@@ -227,6 +235,12 @@ public class TCPSocketImpl extends TCPSocket {
             System.out.println("AFTER WHILE");
             if(shouldClose){
                 System.out.println("SHOULD CLOSE");
+                System.out.println("TIMER COUNTER: " + timerCounter);
+
+                for(int i = 0; i<timerCounter; ++i){
+                    timer.cancel();
+                    timer.purge();
+                }
                 return;
             }
 
