@@ -65,13 +65,14 @@ class Packet implements java.io.Serializable, Comparable< Packet >
                 String[] parts = tokens[i].split(":", 2);
                 if(parts.length <= 1)
                     this.data = "";
-
                 else
                     this.data = parts[1];
             }
             else if(!tokens[i].startsWith("*^*^*^END")){
                 this.data = this.data + "\n" + tokens[i];
             }
+            else
+                return;
         }
     }
 

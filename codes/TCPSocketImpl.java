@@ -184,7 +184,6 @@ public class TCPSocketImpl extends TCPSocket {
         this.enSocket.setSoTimeout(0);
         File file = new File(pathToFile);
         this.reader = new FileInputStream(file);
-        byte[] chunk = new byte[Config.chunkSize];
         this.currSeqNum = 0;
         this.ackedSeqNum = 0;
         this.numDupAck = 0;
@@ -198,6 +197,7 @@ public class TCPSocketImpl extends TCPSocket {
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
         while (true) {
+            byte[] chunk = new byte[Config.chunkSize];
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
             System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum);
             System.out.println("BEFORE WHILE");
@@ -206,6 +206,7 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("IN WHILE" + currSeqNum);
                 if((chunkLen = reader.read(chunk)) == -1) {
                     System.out.println("END OF FILE");
+                    System.out.println("*** CHUNK LEN: " + chunkLen + " " + new String(chunk));
                     endOfFile = true;
                     reader.close();
                     Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0);
@@ -214,7 +215,8 @@ public class TCPSocketImpl extends TCPSocket {
                     this.enSocket.send(sendDatagramPacket);
                     break;
                 }
-                System.out.println("CHUNK LEN: " + chunkLen);
+                chunk = new String(chunk).replaceAll("\0", "").getBytes();
+                System.out.println("*** CHUNK LEN: " + chunkLen + " " + new String(chunk));
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk, "UTF-8"), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
