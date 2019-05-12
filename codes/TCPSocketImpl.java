@@ -68,6 +68,7 @@ public class TCPSocketImpl extends TCPSocket {
         public void run(){
             try {
                 task.cancel();
+                timer.cancel();
                 System.out.println("TIMEDOUT");
                 retransmitPacket(ackedSeqNum);
                 cwnd = 1;
@@ -150,6 +151,7 @@ public class TCPSocketImpl extends TCPSocket {
 
     private void handleNewAck(Packet ackPacket) {
         task.cancel();
+        timer.cancel();
 
         if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) ){
             shouldClose = true;
