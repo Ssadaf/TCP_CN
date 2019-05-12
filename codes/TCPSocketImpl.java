@@ -196,6 +196,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
         int windowLimit;
+        int chunkLen = 0;
         System.out.println("SCHEDULE TIMEOUT FOR THE FIRST TIME");
 
         timer = new Timer();
@@ -209,12 +210,17 @@ public class TCPSocketImpl extends TCPSocket {
 
             while((!endOfFile) & currSeqNum + 1 <= windowLimit) {
                 System.out.println("IN WHILE" + currSeqNum);
-                if(reader.read(chunk) == -1) {
+                if((chunkLen = reader.read(chunk)) == -1) {
                     System.out.println("END OF FILE");
                     endOfFile = true;
                     reader.close();
+                    Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0);
+                    DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+                    sentPackets.add(sendPacket);
+                    this.enSocket.send(sendDatagramPacket);
                     break;
                 }
+                System.out.println("CHUNK LEN: " + chunkLen);
                 this.currSeqNum ++;
                 Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk, "UTF-8"), 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
