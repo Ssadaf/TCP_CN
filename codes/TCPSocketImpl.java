@@ -38,33 +38,6 @@ public class TCPSocketImpl extends TCPSocket {
     private int timerCount = 0;
 
 
-//    public void createNewTimerTask() {
-//        task =  new TimerTask() {
-//            public void run() {
-//                try {
-//                    System.out.println("TIMEDOUT");
-//                    retransmitPacket(ackedSeqNum);
-//                    cwnd = 1;
-//                    SSthreshold = Math.max(1, cwnd / 2);
-//                    numDupAck = 0;
-//
-//                    currState = State.SLOW_START;
-//
-//                    task.cancel();
-//                    timer = new Timer();
-//                    task =  new TimerTask();
-//                    timer.schedule(task, Config.receiveTimeout, Config.receiveTimeout);
-//
-////                    createNewTimerTask();
-//                    System.out.println("SCHEDULE TIMEOUT AFTER TIMEOUT!");
-//                } catch (Exception e) {
-//                    System.out.println("Retransmission timeout failed.");
-//                    e.printStackTrace();
-//                }
-//            }
-//        };
-//    }
-
     class MyTimerTask extends TimerTask{
         public void run(){
             try {
@@ -107,6 +80,7 @@ public class TCPSocketImpl extends TCPSocket {
         else
             return 2;
     }
+
     public void retransmitPacket(int retransmitSeqNum) throws Exception{
         for(Packet packet: sentPackets) {
             if(packet.getSeqNumber() == retransmitSeqNum) {
@@ -202,10 +176,10 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void handleAck(Packet ackPacket) throws Exception {
-        if(ackPacket.getAckNumber() == (this.ackedSeqNum ) )//DUPLICATE ACK
+        if(ackPacket.getAckNumber() == (this.ackedSeqNum ) )
             handleDupAck(ackPacket);
 
-        else{//ACK
+        else{
             handleNewAck(ackPacket);
         }
     }
@@ -229,9 +203,7 @@ public class TCPSocketImpl extends TCPSocket {
         timer.schedule(task, Config.receiveTimeout);
         timerCount++;
         while (true) {
-//            System.out.println("DUP " + numDupAck);
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
-//            System.out.println("limit " + windowLimit + " cwnd " + cwnd + " acked " + ackedSeqNum);
             System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum);
             System.out.println("BEFORE WHILE");
 
@@ -296,7 +268,6 @@ public class TCPSocketImpl extends TCPSocket {
                     return rcvSeqNum;
                 }
                 catch (SocketTimeoutException e) {
-                    // timeout exception.
                     System.out.println("Timeout reached!!! " + e);
                     break;
                 }
@@ -393,9 +364,7 @@ public class TCPSocketImpl extends TCPSocket {
                 sendAck(nextToWriteOnFile);
             }
             else if( (receivedPacket.getSeqNumber() > nextToWriteOnFile && !existsInBuffer(receivedPacket))) {
-//                System.out.println("ADDED " + receivedPacket.getSeqNumber() + " to buffer");
                 buffer.add(receivedPacket);
-                //Collections.sort(buffer);
                 sendAck(nextToWriteOnFile);
             }
             else
@@ -437,30 +406,24 @@ public class TCPSocketImpl extends TCPSocket {
                 if(ackPacket.getAckFlag().equals("1")){
                     if(currState == State.FIN_WAIT_2) {
                         return;
-//                        handleAck(ackPacket);
-//                        continue;
                     }
                     if(currState == State.FIN_WAIT_1){
                         if(ackPacket.getAckNumber() == (this.currSeqNum + 1))
                             currState = State.FIN_WAIT_2;
                         else
-//                            handleAck(ackPacket);
-                        continue;
+                            continue;
                     }
                     if(currState == State.LAST_ACK)
                         return;
                 }
                 if (ackPacket.getFinFlag().equals("1") && currState == State.FIN_WAIT_2) {
                     this.currState = State.TIMED_WAIT;
-    //                        for(int i = 0; i < 7; i++)
-    //                            sendAck(ackPacket.getSeqNumber());
                     TimeUnit.SECONDS.sleep(3);
                     this.currState = State.CLOSED;
                     this.enSocket.close();
                     System.out.println("1-HEREEE");
                     return;
                 }
-//                        this.currState = this.currState == State.FIN_WAIT_1 ? State.FIN_WAIT_2 : State.CLOSED;
             }
         }
     }
