@@ -36,14 +36,16 @@ public class TCPSocketImpl extends TCPSocket {
     private boolean endOfFile = false;
     private boolean shouldClose = false;
     private int timerCounter = 0;
-    private int lastWindowPacketBeforeFR=0;
-    private int windowLimit;
+    private int lastWindowPacketBeforeFR;
+    private int windowLimit = 0;
 
 
     class MyTimerTask extends TimerTask{
         public void run(){
             try {
                 System.out.println("TIMEDOUT");
+                System.out.println("ACKED: " + ackedSeqNum + " SEQ NUM:" +currSeqNum);
+
                 retransmitPacket(ackedSeqNum);
                 cwnd = 1;
                 SSthreshold = Math.max(1, cwnd / 2);
@@ -124,6 +126,8 @@ public class TCPSocketImpl extends TCPSocket {
                 retransmitPacket(this.ackedSeqNum);
                 currState = State.FAST_RECOVERY;
                 lastWindowPacketBeforeFR = windowLimit;
+                System.out.println("!!!!!" + windowLimit);
+                System.out.println("LAST_WINDOW_PACKET SET" + lastWindowPacketBeforeFR);
             }
         }
         else if(currState == State.FAST_RECOVERY){
@@ -175,14 +179,15 @@ public class TCPSocketImpl extends TCPSocket {
             numDupAck = 0;
         }
         else if(currState == State.FAST_RECOVERY){
-            if(ackPacket.getAckNumber() == (lastWindowPacketBeforeFR+1) ){
+            if(ackPacket.getAckNumber() == (lastWindowPacketBeforeFR) ){
                 System.out.println("OUT OF FAST RECOVERY");
                 cwnd = SSthreshold;
                 numDupAck = 0;
                 currState = State.CONGESTION_AVOIDANCE;
             }
-            else{
-                System.out.println("PARTIAL ACK IN FAST RECOVERY");
+            else{//partial ack
+
+                System.out.println("PARTIAL ACK IN FAST RECOVERY" + ackPacket.getAckNumber() + "  "+ lastWindowPacketBeforeFR);
                 cwnd = cwnd - ackCount;
                 retransmitPacket(ackPacket.getAckNumber());
             }
@@ -209,7 +214,6 @@ public class TCPSocketImpl extends TCPSocket {
         this.numDupAck = 0;
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
-        int windowLimit;
         int receiverBuffer = 1;
         System.out.println("SCHEDULE TIMEOUT FOR THE FIRST TIME");
 
@@ -221,7 +225,7 @@ public class TCPSocketImpl extends TCPSocket {
         while (true) {
             byte[] chunk = new byte[Config.chunkSize];
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
-            System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum);
+            System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum + "!!!" + lastWindowPacketBeforeFR);
             System.out.println("BEFORE WHILE");
 
             System.out.println("SEQ - ACK: " + (currSeqNum - ackedSeqNum) + " BUFFER: " + receiverBuffer);
