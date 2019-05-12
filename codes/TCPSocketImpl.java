@@ -35,15 +35,11 @@ public class TCPSocketImpl extends TCPSocket {
     private TimerTask task;
     private boolean endOfFile = false;
     private boolean shouldClose = false;
-    private int timerCount = 0;
 
 
     class MyTimerTask extends TimerTask{
         public void run(){
             try {
-                timer.cancel();
-                timerCount--;
-                timer.purge();
                 System.out.println("TIMEDOUT");
                 retransmitPacket(ackedSeqNum);
                 cwnd = 1;
@@ -89,10 +85,11 @@ public class TCPSocketImpl extends TCPSocket {
             }
         }
         System.out.println("RETRANSMIT " + currState + "  " + retransmitSeqNum + " ACKED  " + ackedSeqNum);
+        timer.cancel();
+        timer.purge();
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
-        timerCount++;
     }
 
     public void cleanSentBuffer(){
@@ -128,7 +125,6 @@ public class TCPSocketImpl extends TCPSocket {
 
     private void handleNewAck(Packet ackPacket) {
         timer.cancel();
-        timerCount--;
         timer.purge();
 
         if(endOfFile & (currSeqNum + 1 == ackPacket.getAckNumber()) ){
@@ -144,7 +140,6 @@ public class TCPSocketImpl extends TCPSocket {
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
-        timerCount++;
 
         cleanSentBuffer();
 
@@ -202,7 +197,6 @@ public class TCPSocketImpl extends TCPSocket {
         timer = new Timer();
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
-        timerCount++;
         while (true) {
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
             System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum);
@@ -230,14 +224,7 @@ public class TCPSocketImpl extends TCPSocket {
             }
             System.out.println("AFTER WHILE");
             if(shouldClose){
-                timer.cancel();
-                timerCount--;
-                timer.purge();
                 System.out.println("SHOULD CLOSE");
-                for(int i = 0; i < timerCount; i++) {
-                    timer.cancel();
-                    timer.purge();
-                }
                 return;
             }
 
