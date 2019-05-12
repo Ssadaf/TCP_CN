@@ -46,7 +46,7 @@ public class TCPServerSocketImpl extends TCPServerSocket {
         int rcvSeqNum = synPacket.getSeqNumber();
 
         TCPSocketImpl server = new TCPSocketImpl(Config.receiverIP,9797);
-        Packet synAckPacket = new Packet("1", "1", "0",9797, Config.senderPortNum, rcvSeqNum + 1, 0, "", 0);
+        Packet synAckPacket = new Packet("1", "1", "0",9797, Config.senderPortNum, rcvSeqNum + 1, 0, "", 0, 0);
         DatagramPacket synAckMsg = synAckPacket.convertToDatagramPacket(Config.senderPortNum, Config.senderIP);
 
         sendSynAck(synAckMsg);

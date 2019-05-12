@@ -47,6 +47,7 @@ public class TCPSocketImpl extends TCPSocket {
                 retransmitPacket(ackedSeqNum);
                 cwnd = 1;
                 SSthreshold = Math.max(1, cwnd / 2);
+                onWindowChange();
                 numDupAck = 0;
 
                 currState = State.SLOW_START;
@@ -67,6 +68,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.currState = State.SLOW_START;
         this.currSeqNum = 0;
         this.cwnd = 1;
+        this.onWindowChange();
     }
 
     public void setDestinationPort(int destinationPort){
@@ -118,6 +120,7 @@ public class TCPSocketImpl extends TCPSocket {
 
                 this.SSthreshold = Math.max(1, this.cwnd / 2);
                 this.cwnd = this.SSthreshold + 3;
+                this.onWindowChange();
                 retransmitPacket(this.ackedSeqNum);
                 currState = State.FAST_RECOVERY;
                 lastWindowPacketBeforeFR = windowLimit;
@@ -126,6 +129,7 @@ public class TCPSocketImpl extends TCPSocket {
         else if(currState == State.FAST_RECOVERY){
             System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
             cwnd ++;
+            this.onWindowChange();
         }
     }
 
@@ -154,6 +158,7 @@ public class TCPSocketImpl extends TCPSocket {
         if(this.currState == State.SLOW_START) {
 
             this.cwnd = this.cwnd + ackCount;
+            this.onWindowChange();
             this.numDupAck = 0;
             if(this.cwnd >= this.SSthreshold)
                 this.currState = State.CONGESTION_AVOIDANCE;
@@ -165,6 +170,7 @@ public class TCPSocketImpl extends TCPSocket {
             if(congestionAvoidanceTemp == cwnd){
                 congestionAvoidanceTemp = 0;
                 cwnd ++;
+                this.onWindowChange();
             }
             numDupAck = 0;
         }
@@ -180,7 +186,6 @@ public class TCPSocketImpl extends TCPSocket {
                 cwnd = cwnd - ackCount;
                 retransmitPacket(ackPacket.getAckNumber());
             }
-
         }
 
     }
@@ -204,7 +209,8 @@ public class TCPSocketImpl extends TCPSocket {
         this.numDupAck = 0;
         this.congestionAvoidanceTemp = 0;
         SSthreshold = 8;
-        int chunkLen = 0;
+        int windowLimit;
+        int receiverBuffer = 1;
         System.out.println("SCHEDULE TIMEOUT FOR THE FIRST TIME");
 
         timer = new Timer();
@@ -218,23 +224,22 @@ public class TCPSocketImpl extends TCPSocket {
             System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum);
             System.out.println("BEFORE WHILE");
 
-            while((!endOfFile) & currSeqNum + 1 <= windowLimit) {
+            System.out.println("SEQ - ACK: " + (currSeqNum - ackedSeqNum) + " BUFFER: " + receiverBuffer);
+            while((!endOfFile) & currSeqNum + 1 <= windowLimit & currSeqNum - ackedSeqNum < receiverBuffer) {
                 System.out.println("IN WHILE" + currSeqNum);
-                if((chunkLen = reader.read(chunk)) == -1) {
+                if(reader.read(chunk) == -1) {
                     System.out.println("END OF FILE");
-                    System.out.println("*** CHUNK LEN: " + chunkLen + " " + new String(chunk));
                     endOfFile = true;
                     reader.close();
-                    Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0);
+                    Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0, 0);
                     DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                     sentPackets.add(sendPacket);
                     this.enSocket.send(sendDatagramPacket);
                     break;
                 }
                 chunk = new String(chunk).replaceAll("\0", "").getBytes();
-                System.out.println("*** CHUNK LEN: " + chunkLen + " " + new String(chunk));
                 this.currSeqNum ++;
-                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk, "UTF-8"), 0);
+                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk, "UTF-8"), 0, 0);
                 DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
                 sentPackets.add(sendPacket);
                 this.enSocket.send(sendDatagramPacket);
@@ -256,12 +261,12 @@ public class TCPSocketImpl extends TCPSocket {
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
             this.enSocket.receive(ackDatagram);
             Packet ackPacket = new Packet(new String(msg).replaceAll("^\\x00*", ""));
+            receiverBuffer = ackPacket.getEmptyBufferSize();
 
             System.out.println("RECEIVED " + ackPacket.getAckNumber());
 
             handleAck(ackPacket);
 
-            this.onWindowChange();
             System.out.println("END");
         }
     }
@@ -294,11 +299,11 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void connect(String serverIP, int serverPort) throws Exception {
-        Packet synPacket = new Packet("0", "1", "0", Config.senderPortNum, Config.receiverPortNum, 0, 0, "", 0);
+        Packet synPacket = new Packet("0", "1", "0", Config.senderPortNum, Config.receiverPortNum, 0, 0, "", 0, 0);
         DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(serverPort, serverIP);
         int rcvSeqNum = sendSyn(synDatagramPacket);
 
-        Packet ackPacket = new Packet("1", "0", "0", Config.senderPortNum, Config.receiverPortNum, rcvSeqNum + 1, 0, "", 0);
+        Packet ackPacket = new Packet("1", "0", "0", Config.senderPortNum, Config.receiverPortNum, rcvSeqNum + 1, 0, "", 0, Config.receiverBufferSize);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(Config.receiverPortNum, serverIP);
 
         for(int i=0; i<7; i++)
@@ -341,7 +346,8 @@ public class TCPSocketImpl extends TCPSocket {
 
     private void sendAck(int seqNum) throws Exception {
         System.out.println("SENDING ACK " + seqNum);
-        Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, seqNum, this.currSeqNum, "", 0);
+        Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort,
+                seqNum, this.currSeqNum, "", 0, Config.receiverBufferSize);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
         this.enSocket.send(ackDatagramPacket);
     }
@@ -365,7 +371,7 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("SENDER WANTS TO CLOSE");
                 this.currState = State.CLOSE_WAIT;
                 this.currSeqNum++;
-                Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0);
+                Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0, 0);
                 DatagramPacket finAckDatagramPacket = finAckPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
                 for(int i = 0; i < 7; i++)
                     this.enSocket.send(finAckDatagramPacket);
@@ -387,7 +393,6 @@ public class TCPSocketImpl extends TCPSocket {
             else
                 sendAck(nextToWriteOnFile);
         }
-
         this.writer.close();
     }
 
@@ -403,7 +408,7 @@ public class TCPSocketImpl extends TCPSocket {
 
         byte[] msg = new byte[Config.maxMsgSize];
         currSeqNum = 1;
-        Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0);
+        Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0, 0);
         DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
         for(int i=0; i<7; i++){
             this.enSocket.send(closeDatagramPacket);

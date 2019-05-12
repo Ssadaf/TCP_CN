@@ -15,9 +15,10 @@ class Packet implements java.io.Serializable, Comparable< Packet >
     private byte[] buffer;
     private int offset;
     private int length;
+    private int emptyBufferSize;
 
     public Packet(String ackFlag, String synFlag, String finFlag,int sourcePort, int destinationPort
-            , int ackNumber, int seqNumber, String data, int offset) {
+            , int ackNumber, int seqNumber, String data, int offset, int emptyBufferSize) {
         this.ackFlag = ackFlag;
         this.synFlag = synFlag;
         this.finFlag = finFlag;
@@ -27,6 +28,7 @@ class Packet implements java.io.Serializable, Comparable< Packet >
         this.seqNumber = seqNumber;
         this.data = data;
         this.offset = offset;
+        this.emptyBufferSize = emptyBufferSize;
     }
 
     public Packet(String data){
@@ -61,6 +63,10 @@ class Packet implements java.io.Serializable, Comparable< Packet >
                 String[] parts = tokens[i].split(":");
                 this.seqNumber = Integer.parseInt(parts[1]);
             }
+            else if(tokens[i].startsWith("buffer:")){
+                String[] parts = tokens[i].split(":");
+                this.emptyBufferSize = Integer.parseInt(parts[1]);
+            }
             else if(tokens[i].startsWith("data:")){
                 String[] parts = tokens[i].split(":", 2);
                 if(parts.length <= 1)
@@ -79,7 +85,8 @@ class Packet implements java.io.Serializable, Comparable< Packet >
     public String createMessage(){
         String msg = "";
         msg += "ack:" + ackFlag + "\nsyn:" + synFlag +"\nfin:"+ finFlag+ "\nack_num:" + String.valueOf(ackNumber)
-             + "\nsource_port:" + String.valueOf(sourcePort) + "\ndestination_port:" + String.valueOf(destinationPort) + "\nseqNum:" + String.valueOf(seqNumber) + "\ndata:" + data;
+             + "\nsource_port:" + String.valueOf(sourcePort) + "\ndestination_port:" + String.valueOf(destinationPort)
+                + "\nbuffer:" + emptyBufferSize + "\nseqNum:" + String.valueOf(seqNumber) + "\ndata:" + data;
         return msg;
     }
 
@@ -112,7 +119,7 @@ class Packet implements java.io.Serializable, Comparable< Packet >
         return ackNumber;
     }
 
-
+    public int getEmptyBufferSize() { return emptyBufferSize; }
 
     public String getData()
     {
