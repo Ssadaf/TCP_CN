@@ -1,12 +1,11 @@
+import com.sun.tools.javac.util.ArrayUtils;
 import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
 
+import java.lang.reflect.Array;
 import java.net.DatagramPacket;
 import java.net.SocketTimeoutException;
-import java.util.ArrayList;
+import java.util.*;
 import java.io.*;
-import java.util.Collections;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
 enum State{
@@ -24,7 +23,7 @@ public class TCPSocketImpl extends TCPSocket {
     private ArrayList<Packet> buffer = new ArrayList<>();
     private ArrayList<Packet> sentPackets = new ArrayList<>();
     private int nextToWriteOnFile;
-    private BufferedWriter writer;
+    private OutputStream writer;
     private FileInputStream reader;
     private int cwnd;
     private int ackedSeqNum;
@@ -38,7 +37,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int timerCounter = 0;
     private int lastWindowPacketBeforeFR;
     private int windowLimit = 0;
-    private String bufferedMsg = "";
+    private byte[] bufferedMsg = new byte[0];
 
 
     class MyTimerTask extends TimerTask{
@@ -61,8 +60,6 @@ public class TCPSocketImpl extends TCPSocket {
         }
     }
 
-
-
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
         this.sourcePort = port;
@@ -71,7 +68,6 @@ public class TCPSocketImpl extends TCPSocket {
         this.currSeqNum = 0;
         changeTCPParameters(1, SSthreshold);
     }
-
 
     public void changeTCPParameters(int cwnd, int ssthresh){
         this.SSthreshold = ssthresh;
@@ -198,9 +194,9 @@ public class TCPSocketImpl extends TCPSocket {
         }
     }
 
-    public void sendMsg(String msg)throws Exception{
-        bufferedMsg += msg;
-        if((bufferedMsg.length() < Config.msgSizeLimit) & (!endOfFile)){
+    public void sendMsg(byte[] msg)throws Exception{
+        bufferedMsg = Tools.concatenate(bufferedMsg, msg);
+        if((bufferedMsg.length < Config.msgSizeLimit) & (!endOfFile)){
             System.out.println("BUFFERING MSG");
             return;
         }
@@ -209,7 +205,14 @@ public class TCPSocketImpl extends TCPSocket {
         DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
         sentPackets.add(sendPacket);
         this.enSocket.send(sendDatagramPacket);
-        bufferedMsg = "";
+        bufferedMsg = new byte[0];
+    }
+
+    public byte[] deleteNullBytes(byte[] input){
+        int i = input.length - 1;
+        while (i >= 0 && input[i] == 0)
+            --i;
+        return Arrays.copyOf(input, i + 1);
     }
 
     @Override
@@ -242,12 +245,12 @@ public class TCPSocketImpl extends TCPSocket {
                 if(reader.read(chunk) == -1) {
                     System.out.println("END OF FILE");
                     endOfFile = true;
-                    sendMsg("");
+                    sendMsg(chunk);
                     reader.close();
                     break;
                 }
-                chunk = new String(chunk).replaceAll("\0", "").getBytes();
-                sendMsg( new String(chunk, "UTF-8"));
+                chunk = deleteNullBytes(chunk);
+                sendMsg(chunk);
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
             System.out.println("AFTER WHILE");
@@ -265,7 +268,7 @@ public class TCPSocketImpl extends TCPSocket {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket ackDatagram = new DatagramPacket(msg, msg.length);
             this.enSocket.receive(ackDatagram);
-            Packet ackPacket = new Packet(new String(msg).replaceAll("^\\x00*", ""));
+            Packet ackPacket = new Packet(msg);
             receiverBuffer = ackPacket.getEmptyBufferSize();
 
             System.out.println("RECEIVED " + ackPacket.getAckNumber());
@@ -287,7 +290,7 @@ public class TCPSocketImpl extends TCPSocket {
             while(true){
                 try {
                     this.enSocket.receive(synAckDatagramPacket);
-                    synAckPacket = new Packet(new String(msg));
+                    synAckPacket = new Packet(msg);
                     if(!synAckPacket.getSynFlag().equals("1") || !synAckPacket.getAckFlag().equals("1"))
                         throw new Exception("This message is not SYN ACK");
                     this.destinationPort = synAckPacket.getSourcePort();
@@ -304,11 +307,11 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void connect(String serverIP, int serverPort) throws Exception {
-        Packet synPacket = new Packet("0", "1", "0", Config.senderPortNum, Config.receiverPortNum, 0, 0, "", 0, 0);
+        Packet synPacket = new Packet("0", "1", "0", Config.senderPortNum, Config.receiverPortNum, 0, 0, new byte[0], 0, 0);
         DatagramPacket synDatagramPacket = synPacket.convertToDatagramPacket(serverPort, serverIP);
         int rcvSeqNum = sendSyn(synDatagramPacket);
 
-        Packet ackPacket = new Packet("1", "0", "0", Config.senderPortNum, Config.receiverPortNum, rcvSeqNum + 1, 0, "", 0, Config.receiverBufferSize);
+        Packet ackPacket = new Packet("1", "0", "0", Config.senderPortNum, Config.receiverPortNum, rcvSeqNum + 1, 0, new byte[0], 0, Config.receiverBufferSize);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(Config.receiverPortNum, serverIP);
 
         for(int i=0; i<7; i++)
@@ -321,7 +324,7 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void writeToFile(Packet newPacket) throws Exception{
-        String data = newPacket.getData();
+        byte[] data = newPacket.getData();
         this.writer.write(data);
         System.out.println("Writing to file: " + newPacket.getSeqNumber() );
     }
@@ -352,23 +355,21 @@ public class TCPSocketImpl extends TCPSocket {
     private void sendAck(int seqNum) throws Exception {
         System.out.println("SENDING ACK " + seqNum);
         Packet ackPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort,
-                seqNum, this.currSeqNum, "", 0, Config.receiverBufferSize);
+                seqNum, this.currSeqNum, new byte[0], 0, Config.receiverBufferSize);
         DatagramPacket ackDatagramPacket = ackPacket.convertToDatagramPacket(destinationPort, destinationIP);
         this.enSocket.send(ackDatagramPacket);
     }
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        FileWriter newFile = new FileWriter(pathToFile);
-        newFile.close();
-        this.writer = new BufferedWriter(new FileWriter(pathToFile, true));
+        this.writer = new FileOutputStream(new File(pathToFile), true);
         this.nextToWriteOnFile = 1;
 
         while(this.currState != State.CLOSE_WAIT) {
             byte[] msg = new byte[Config.maxMsgSize];
             DatagramPacket receivedDatagram = new DatagramPacket(msg, msg.length);
             this.enSocket.receive(receivedDatagram);
-            Packet receivedPacket = new Packet(new String(msg));
+            Packet receivedPacket = new Packet(msg);
             int rcvSeqNum = receivedPacket.getSeqNumber();
             if(checkIfAckOrSyn(receivedPacket))
                 continue;
@@ -376,7 +377,7 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("SENDER WANTS TO CLOSE");
                 this.currState = State.CLOSE_WAIT;
                 this.currSeqNum++;
-                Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, "", 0, 0);
+                Packet finAckPacket = new Packet("1", "0", "0", sourcePort, this.destinationPort, rcvSeqNum + 1, this.currSeqNum, new byte[0], 0, 0);
                 DatagramPacket finAckDatagramPacket = finAckPacket.convertToDatagramPacket(this.destinationPort, destinationIP);
                 for(int i = 0; i < 7; i++)
                     this.enSocket.send(finAckDatagramPacket);
@@ -413,7 +414,7 @@ public class TCPSocketImpl extends TCPSocket {
 
         byte[] msg = new byte[Config.maxMsgSize];
         currSeqNum = 1;
-        Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "", 0, 0);
+        Packet closePacket = new Packet("0", "0", "1", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new byte[0], 0, 0);
         DatagramPacket closeDatagramPacket = closePacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
         for(int i=0; i<7; i++){
             this.enSocket.send(closeDatagramPacket);
@@ -429,7 +430,7 @@ public class TCPSocketImpl extends TCPSocket {
                 DatagramPacket ackDatagramPacket = new DatagramPacket(msg, msg.length);
                 this.enSocket.receive(ackDatagramPacket);
                 System.out.println("RECEIVED PACKET IN CLOSE");
-                Packet ackPacket = new Packet(new String(msg));
+                Packet ackPacket = new Packet(msg);
                 if(ackPacket.getAckFlag().equals("1")){
                     if(currState == State.FIN_WAIT_2) {
                         return;
