@@ -10,4 +10,5 @@ class Config
     public static final int chunkSize = 64;
     public static final long receiveTimeout = 1000;
     public static final int receiverBufferSize = 20;
+    public static final int msgSizeLimit = 110;
 }

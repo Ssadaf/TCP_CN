@@ -38,6 +38,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int timerCounter = 0;
     private int lastWindowPacketBeforeFR;
     private int windowLimit = 0;
+    private String bufferedMsg = "";
 
 
     class MyTimerTask extends TimerTask{
@@ -206,17 +207,17 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     public void sendMsg(String msg)throws Exception{
-//        Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0, 0);
-//        DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-//        sentPackets.add(sendPacket);
-//        this.enSocket.send(sendDatagramPacket);
-
-
+        bufferedMsg += msg;
+        if((bufferedMsg.length() < Config.msgSizeLimit) & (!endOfFile)){
+            System.out.println("BUFFERING MSG");
+            return;
+        }
         this.currSeqNum ++;
-        Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, msg, 0, 0);
+        Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, bufferedMsg, 0, 0);
         DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
         sentPackets.add(sendPacket);
         this.enSocket.send(sendDatagramPacket);
+        bufferedMsg = "";
     }
 
     @Override
@@ -249,6 +250,7 @@ public class TCPSocketImpl extends TCPSocket {
                 if(reader.read(chunk) == -1) {
                     System.out.println("END OF FILE");
                     endOfFile = true;
+                    sendMsg("");
                     reader.close();
                     break;
                 }
