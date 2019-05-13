@@ -48,9 +48,7 @@ public class TCPSocketImpl extends TCPSocket {
                 System.out.println("ACKED: " + ackedSeqNum + " SEQ NUM:" +currSeqNum);
 
                 retransmitPacket(ackedSeqNum);
-                cwnd = 1;
-                SSthreshold = Math.max(1, cwnd / 2);
-                onWindowChange();
+                changeTCPParameters(1,  Math.max(1, cwnd / 2));
                 numDupAck = 0;
 
                 currState = State.SLOW_START;
@@ -64,25 +62,25 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
 
+
     public TCPSocketImpl(String ip, int port) throws Exception {
         super(ip, port);
         this.sourcePort = port;
         this.enSocket = new EnhancedDatagramSocket(port);
         this.currState = State.SLOW_START;
         this.currSeqNum = 0;
-        this.cwnd = 1;
+        changeTCPParameters(1, SSthreshold);
+    }
+
+
+    public void changeTCPParameters(int cwnd, int ssthresh){
+        this.SSthreshold = ssthresh;
+        this.cwnd = cwnd;
         this.onWindowChange();
     }
 
     public void setDestinationPort(int destinationPort){
         this.destinationPort = destinationPort;
-    }
-
-    public int getCurrentDupAckLimit() {
-        if (this.ackedSeqNum == (this.currSeqNum - this.cwnd + 1))
-            return 3;
-        else
-            return 2;
     }
 
     public void retransmitPacket(int retransmitSeqNum) throws Exception{
@@ -121,9 +119,7 @@ public class TCPSocketImpl extends TCPSocket {
             if (this.numDupAck == 3) {
                 System.out.println("FAST RECOVERY");
 
-                this.SSthreshold = Math.max(1, this.cwnd / 2);
-                this.cwnd = this.SSthreshold + 3;
-                this.onWindowChange();
+                changeTCPParameters(SSthreshold + 3, Math.max(1, this.cwnd / 2));
                 retransmitPacket(this.ackedSeqNum);
                 currState = State.FAST_RECOVERY;
                 lastWindowPacketBeforeFR = windowLimit;
@@ -132,8 +128,7 @@ public class TCPSocketImpl extends TCPSocket {
         }
         else if(currState == State.FAST_RECOVERY){
             System.out.println(ackPacket.getAckNumber()+ " "+ ackedSeqNum);
-            cwnd ++;
-            this.onWindowChange();
+            changeTCPParameters(cwnd + 1, SSthreshold);
         }
     }
 
@@ -160,9 +155,7 @@ public class TCPSocketImpl extends TCPSocket {
         cleanSentBuffer();
 
         if(this.currState == State.SLOW_START) {
-
-            this.cwnd = this.cwnd + ackCount;
-            this.onWindowChange();
+            changeTCPParameters(cwnd + ackCount, SSthreshold);
             this.numDupAck = 0;
             if(this.cwnd >= this.SSthreshold)
                 this.currState = State.CONGESTION_AVOIDANCE;
@@ -173,8 +166,7 @@ public class TCPSocketImpl extends TCPSocket {
             this.congestionAvoidanceTemp ++;
             if(congestionAvoidanceTemp == cwnd){
                 congestionAvoidanceTemp = 0;
-                cwnd ++;
-                this.onWindowChange();
+                changeTCPParameters(cwnd + 1, SSthreshold);
             }
             numDupAck = 0;
         }
@@ -182,14 +174,14 @@ public class TCPSocketImpl extends TCPSocket {
             int packetAckNum = ackPacket.getAckNumber();
             if(packetAckNum == (lastWindowPacketBeforeFR + 1) ){
                 System.out.println("OUT OF FAST RECOVERY");
-                cwnd = SSthreshold;
+                changeTCPParameters(SSthreshold, SSthreshold);
                 numDupAck = 0;
                 currState = State.CONGESTION_AVOIDANCE;
             }
             else if(packetAckNum < (lastWindowPacketBeforeFR + 1) ){//partial ack
 
                 System.out.println("PARTIAL ACK IN FAST RECOVERY" + ackPacket.getAckNumber() + "  "+ lastWindowPacketBeforeFR);
-                cwnd = cwnd - ackCount;
+                changeTCPParameters(cwnd - ackCount, SSthreshold);
                 retransmitPacket(ackPacket.getAckNumber());
             }
         }
