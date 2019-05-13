@@ -74,11 +74,9 @@ class Packet implements java.io.Serializable, Comparable< Packet >
                 else
                     this.data = parts[1];
             }
-            else if(!tokens[i].startsWith("*^*^*^END")){
+            else {
                 this.data = this.data + "\n" + tokens[i];
             }
-            else
-                return;
         }
     }
 

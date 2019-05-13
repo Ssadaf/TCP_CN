@@ -126,7 +126,6 @@ public class TCPSocketImpl extends TCPSocket {
                 retransmitPacket(this.ackedSeqNum);
                 currState = State.FAST_RECOVERY;
                 lastWindowPacketBeforeFR = windowLimit;
-                System.out.println("!!!!!" + windowLimit);
                 System.out.println("LAST_WINDOW_PACKET SET" + lastWindowPacketBeforeFR);
             }
         }
@@ -206,6 +205,20 @@ public class TCPSocketImpl extends TCPSocket {
         }
     }
 
+    public void sendMsg(String msg)throws Exception{
+//        Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0, 0);
+//        DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+//        sentPackets.add(sendPacket);
+//        this.enSocket.send(sendDatagramPacket);
+
+
+        this.currSeqNum ++;
+        Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, msg, 0, 0);
+        DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
+        sentPackets.add(sendPacket);
+        this.enSocket.send(sendDatagramPacket);
+    }
+
     @Override
     public void send(String pathToFile) throws Exception{
         this.enSocket.setSoTimeout(0);
@@ -225,30 +238,22 @@ public class TCPSocketImpl extends TCPSocket {
         timerCounter ++;
 
         while (true) {
-            byte[] chunk = new byte[Config.chunkSize];
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
-            System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum + "!!!" + lastWindowPacketBeforeFR);
+            System.out.println("START  ack: " + ackedSeqNum + "  win: " + windowLimit + " seq: " + currSeqNum + " acked: " + ackedSeqNum );
             System.out.println("BEFORE WHILE");
 
             System.out.println("SEQ - ACK: " + (currSeqNum - ackedSeqNum) + " BUFFER: " + receiverBuffer);
             while((!endOfFile) & currSeqNum + 1 <= windowLimit & currSeqNum - ackedSeqNum < receiverBuffer) {
+                byte[] chunk = new byte[Config.chunkSize];
                 System.out.println("IN WHILE" + currSeqNum);
                 if(reader.read(chunk) == -1) {
                     System.out.println("END OF FILE");
                     endOfFile = true;
                     reader.close();
-                    Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, "\n*^*^*^END", 0, 0);
-                    DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-                    sentPackets.add(sendPacket);
-                    this.enSocket.send(sendDatagramPacket);
                     break;
                 }
                 chunk = new String(chunk).replaceAll("\0", "").getBytes();
-                this.currSeqNum ++;
-                Packet sendPacket = new Packet("0", "0", "0", this.sourcePort, this.destinationPort, 0, this.currSeqNum, new String(chunk, "UTF-8"), 0, 0);
-                DatagramPacket sendDatagramPacket = sendPacket.convertToDatagramPacket(this.destinationPort, this.destinationIP);
-                sentPackets.add(sendPacket);
-                this.enSocket.send(sendDatagramPacket);
+                sendMsg( new String(chunk, "UTF-8"));
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
             System.out.println("AFTER WHILE");
