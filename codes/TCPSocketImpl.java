@@ -179,13 +179,14 @@ public class TCPSocketImpl extends TCPSocket {
             numDupAck = 0;
         }
         else if(currState == State.FAST_RECOVERY){
-            if(ackPacket.getAckNumber() == (lastWindowPacketBeforeFR) ){
+            int packetAckNum = ackPacket.getAckNumber();
+            if(packetAckNum == (lastWindowPacketBeforeFR + 1) ){
                 System.out.println("OUT OF FAST RECOVERY");
                 cwnd = SSthreshold;
                 numDupAck = 0;
                 currState = State.CONGESTION_AVOIDANCE;
             }
-            else{//partial ack
+            else if(packetAckNum < (lastWindowPacketBeforeFR + 1) ){//partial ack
 
                 System.out.println("PARTIAL ACK IN FAST RECOVERY" + ackPacket.getAckNumber() + "  "+ lastWindowPacketBeforeFR);
                 cwnd = cwnd - ackCount;
@@ -196,10 +197,11 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void handleAck(Packet ackPacket) throws Exception {
-        if(ackPacket.getAckNumber() == (this.ackedSeqNum ) )
+        int packetAckNum = ackPacket.getAckNumber();
+        if(packetAckNum == (this.ackedSeqNum ) )
             handleDupAck(ackPacket);
 
-        else{
+        else if(packetAckNum > ackedSeqNum){
             handleNewAck(ackPacket);
         }
     }
