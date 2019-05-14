@@ -355,7 +355,7 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        this.writer = new FileOutputStream(new File(pathToFile), true);
+        this.writer = new FileOutputStream(new File(pathToFile));
         this.nextToWriteOnFile = 1;
 
         while(this.currState != State.CLOSE_WAIT) {
