@@ -6,7 +6,7 @@ public class Receiver {
         TCPServerSocketImpl tcpServerSocket = new TCPServerSocketImpl(Config.receiverPortNum);
         TCPSocket tcpSocket = tcpServerSocket.accept();
 
-        tcpSocket.receive("../test.png");
+        tcpSocket.receive("../test.txt");
         tcpSocket.close();
         System.out.println("DONE");
     }
