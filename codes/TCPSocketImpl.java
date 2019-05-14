@@ -38,6 +38,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int lastWindowPacketBeforeFR;
     private int windowLimit = 0;
     private byte[] bufferedMsg = new byte[0];
+    private int bufferLen = 0;
 
 
     class MyTimerTask extends TimerTask{
@@ -206,10 +207,12 @@ public class TCPSocketImpl extends TCPSocket {
         sentPackets.add(sendPacket);
         this.enSocket.send(sendDatagramPacket);
         bufferedMsg = new byte[0];
+        bufferLen = 0;
     }
 
     @Override
     public void send(String pathToFile) throws Exception{
+        int readLen;
         this.enSocket.setSoTimeout(0);
         File file = new File(pathToFile);
         this.reader = new FileInputStream(file);
@@ -225,6 +228,7 @@ public class TCPSocketImpl extends TCPSocket {
         task =  new MyTimerTask();
         timer.schedule(task, Config.receiveTimeout);
         timerCounter ++;
+        readLen = 0;
 
         while (true) {
             windowLimit = this.ackedSeqNum + this.cwnd + this.numDupAck;
@@ -235,14 +239,15 @@ public class TCPSocketImpl extends TCPSocket {
             while((!endOfFile) & currSeqNum + 1 <= windowLimit & currSeqNum - ackedSeqNum < receiverBuffer) {
                 byte[] chunk = new byte[Config.chunkSize];
                 System.out.println("IN WHILE" + currSeqNum);
-                if(reader.read(chunk) == -1) {
+                if((readLen = reader.read(chunk)) == -1) {
                     System.out.println("END OF FILE");
                     endOfFile = true;
                     sendMsg(chunk);
                     reader.close();
                     break;
                 }
-                chunk = Tools.deleteNullBytes(chunk);
+//                chunk = Tools.deleteNullBytes(chunk);
+                readLen += readLen;
                 sendMsg(chunk);
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
