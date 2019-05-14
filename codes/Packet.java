@@ -49,7 +49,7 @@ class Packet implements java.io.Serializable, Comparable< Packet >
         this.emptyBufferSize = convertByteToInt(15, msg);
         this.seqNumber = convertByteToInt(19, msg);
         int dataLen = convertByteToInt(23, msg);
-        this.data = Arrays.copyOfRange(msg, 27, 27 + dataLen);
+        this.data = Tools.deleteNullBytes(Arrays.copyOfRange(msg, 27, 27 + dataLen));
 
 //        for(int i=0; i<tokens.length; i++){
 //            if (tokens[i].startsWith("ack:")){

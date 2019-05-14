@@ -208,13 +208,6 @@ public class TCPSocketImpl extends TCPSocket {
         bufferedMsg = new byte[0];
     }
 
-    public byte[] deleteNullBytes(byte[] input){
-        int i = input.length - 1;
-        while (i >= 0 && input[i] == 0)
-            --i;
-        return Arrays.copyOf(input, i + 1);
-    }
-
     @Override
     public void send(String pathToFile) throws Exception{
         this.enSocket.setSoTimeout(0);
@@ -249,7 +242,7 @@ public class TCPSocketImpl extends TCPSocket {
                     reader.close();
                     break;
                 }
-                chunk = deleteNullBytes(chunk);
+                chunk = Tools.deleteNullBytes(chunk);
                 sendMsg(chunk);
                 System.out.println("SENDING " + currState + " " + currSeqNum);
             }
